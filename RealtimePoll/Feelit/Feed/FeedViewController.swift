@@ -282,13 +282,7 @@ extension FeedViewController: UICollectionViewDataSource, UICollectionViewDelega
         let header = collectionView.dequeueReusableSupplementaryView(
             ofKind: kind, withReuseIdentifier: SectionHeaderView.reuseId, for: indexPath) as! SectionHeaderView
         switch Section(rawValue: indexPath.section)! {
-        case .trending:
-            header.configure(title: "🔥 Đang Hot", showAction: true)
-            header.onAction = { [weak self] in
-                let vc = TrendingCardsViewController()
-                vc.hidesBottomBarWhenPushed = true
-                self?.navigationController?.pushViewController(vc, animated: true)
-            }
+        case .trending: header.configure(title: "🔥 Đang Hot", showAction: true)
         case .posts:    header.configure(title: "📰 Nhận định mới", showAction: false)
         default:        header.configure(title: "", showAction: false)
         }
