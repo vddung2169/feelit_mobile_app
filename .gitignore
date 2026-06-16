@@ -1,0 +1,5 @@
+# MCP config (may contain local secrets / per-machine env)
+.mcp.json
+
+# macOS
+.DS_Store

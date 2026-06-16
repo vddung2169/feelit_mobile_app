@@ -11,8 +11,8 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     ) {
         guard let windowScene = scene as? UIWindowScene else { return }
 
-        // FEELIT — Social Investing & Market Consensus
-        let root = FeelitTabBarController()
+        // FEELIT — màn logo feelit hiện đầu tiên; sau 3s → "Create a new account".
+        let root = LogoLandingViewController()
 
         window = UIWindow(windowScene: windowScene)
         window?.overrideUserInterfaceStyle = .dark
