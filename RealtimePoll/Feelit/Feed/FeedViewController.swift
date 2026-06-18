@@ -1,4 +1,5 @@
 import UIKit
+import Combine
 
 // MARK: - FeedViewController
 /// Tab 1 — Feed: Market Pulse header + Trending polls (horizontal) + Feed posts (vertical).
@@ -6,8 +7,10 @@ final class FeedViewController: UIViewController {
 
     private enum Section: Int, CaseIterable { case pulse, trending, posts }
 
-    private let polls = FEMock.polls
-    private var posts: [FEPost] = []   // load từ GET /api/posts
+    private let polls = FEMock.polls   // "Đang Hot" — mock tĩnh (không qua ViewModel)
+    private let viewModel = FeedViewModel()
+    private var cancellables = Set<AnyCancellable>()
+    private var posts: [FEPost] { viewModel.posts }   // nguồn: ViewModel (GET /api/posts)
 
     private lazy var collectionView: UICollectionView = {
         let cv = UICollectionView(frame: .zero, collectionViewLayout: makeLayout())
@@ -32,27 +35,23 @@ final class FeedViewController: UIViewController {
         setupBell()
         setupCollectionView()
         setupRefresh()
-        loadPosts()
+        bindViewModel()
+        viewModel.loadFeed()
 
         NotificationCenter.default.addObserver(
             self, selector: #selector(updateBellBadge),
             name: .feelitUnreadDidChange, object: nil)
     }
 
-    // MARK: - Load posts (GET /api/posts)
-    private func loadPosts(completion: (() -> Void)? = nil) {
-        APIClient.shared.getPosts { [weak self] result in
-            DispatchQueue.main.async {
+    // MARK: - Binding
+    private func bindViewModel() {
+        viewModel.$posts
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
                 guard let self = self else { return }
-                if case .success(let dtos) = result {
-                    self.posts = dtos.map { $0.toFEPost() }
-                    self.collectionView.reloadSections(IndexSet(integer: Section.posts.rawValue))
-                } else if case .failure(let error) = result {
-                    print("⚠️ getPosts failed: \(error)")
-                }
-                completion?()
+                self.collectionView.reloadSections(IndexSet(integer: Section.posts.rawValue))
             }
-        }
+            .store(in: &cancellables)
     }
 
     override func viewWillAppear(_ animated: Bool) {
@@ -183,7 +182,7 @@ final class FeedViewController: UIViewController {
         spin.repeatCount = .infinity
         refreshLogo.layer.add(spin, forKey: "spin")
 
-        loadPosts { [weak self] in
+        viewModel.loadFeed { [weak self] in
             self?.refreshLogo.layer.removeAnimation(forKey: "spin")
             self?.refreshControl.endRefreshing()
         }
@@ -313,24 +312,7 @@ extension FeedViewController: PostCardDelegate {
     }
 
     func postCard(_ cell: PostCard, didTapLike postId: String) {
-        let userId = DeviceIdManager.shared.deviceId
-        APIClient.shared.likePost(postId: postId, userId: userId) { [weak self, weak cell] result in
-            DispatchQueue.main.async {
-                guard let self = self else { return }
-                switch result {
-                case .success(let res):
-                    // Đồng bộ số tim với server (nguồn chân lý).
-                    if let idx = self.posts.firstIndex(where: { $0.id == postId }) {
-                        self.posts[idx].likes = res.likes
-                    }
-                case .failure:
-                    // Revert cả số đếm lẫn trạng thái tim đã lưu, rồi reload cell.
-                    LikeStore.shared.setLiked(postId, !LikeStore.shared.isLiked(postId))
-                    if let cell = cell, let indexPath = self.collectionView.indexPath(for: cell) {
-                        self.collectionView.reloadItems(at: [indexPath])
-                    }
-                }
-            }
-        }
+        // Optimistic UI ở cell; ViewModel gọi API + đồng bộ/revert (revert → reload section).
+        viewModel.likePost(postId: postId)
     }
 }

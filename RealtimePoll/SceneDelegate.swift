@@ -11,8 +11,8 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     ) {
         guard let windowScene = scene as? UIWindowScene else { return }
 
-        // FEELIT — màn logo feelit hiện đầu tiên; sau 3s → "Create a new account".
-        let root = LogoLandingViewController()
+        // FEELIT — flow Auth: màn Welcome hiện đầu tiên → nhập email.
+        let root = AuthNavigationController(rootViewController: AuthWelcomeViewController())
 
         window = UIWindow(windowScene: windowScene)
         window?.overrideUserInterfaceStyle = .dark

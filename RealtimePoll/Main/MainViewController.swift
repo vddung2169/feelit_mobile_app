@@ -1,9 +1,14 @@
 import UIKit
+import Combine
 
 final class MainViewController: UIViewController {
 
-    // MARK: - Data
-    private var polls: [Poll] = []
+    // MARK: - ViewModel
+    private let viewModel = PollListViewModel()
+    private var cancellables = Set<AnyCancellable>()
+
+    /// Proxy đọc dữ liệu cho table (nguồn: ViewModel).
+    private var polls: [Poll] { viewModel.polls }
 
     // MARK: - UI
     private let logoLabel: UILabel = {
@@ -69,11 +74,74 @@ final class MainViewController: UIViewController {
         super.viewDidLoad()
         setupUI()
         setupActions()
+        bindViewModel()
     }
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        loadPolls()
+        viewModel.loadPolls()
+    }
+
+    // MARK: - Binding
+    private func bindViewModel() {
+        viewModel.$polls
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] polls in
+                guard let self = self else { return }
+                self.tableView.reloadData()
+                if self.viewModel.errorMessage == nil {
+                    self.emptyLabel.text = "Chưa có poll nào.\nBấm 'Create New Poll' để tạo."
+                    self.emptyLabel.isHidden = !polls.isEmpty
+                }
+            }
+            .store(in: &cancellables)
+
+        viewModel.$isLoading
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] loading in
+                guard let self = self else { return }
+                if loading {
+                    self.activityIndicator.startAnimating()
+                    self.emptyLabel.isHidden = true
+                } else {
+                    self.activityIndicator.stopAnimating()
+                    self.navigationItem.rightBarButtonItem?.isEnabled = true
+                }
+            }
+            .store(in: &cancellables)
+
+        viewModel.$errorMessage
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] message in
+                guard let self = self, let message = message, !message.isEmpty else { return }
+                _ = message
+                self.emptyLabel.text = "Không thể tải danh sách poll.\nKiểm tra server đang chạy chưa."
+                self.emptyLabel.isHidden = false
+            }
+            .store(in: &cancellables)
+
+        viewModel.$createPollError
+            .receive(on: DispatchQueue.main)
+            .compactMap { $0 }
+            .sink { [weak self] message in
+                self?.showError(message)
+                self?.viewModel.clearError()
+            }
+            .store(in: &cancellables)
+
+        viewModel.$isCreatingPoll
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] creating in self?.createButton.isEnabled = !creating }
+            .store(in: &cancellables)
+
+        viewModel.$navigateToPoll
+            .compactMap { $0 }
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] poll in
+                self?.openPoll(poll)
+                self?.viewModel.clearNavigation()
+            }
+            .store(in: &cancellables)
     }
 
     // MARK: - Setup
@@ -121,57 +189,12 @@ final class MainViewController: UIViewController {
         createButton.addTarget(self, action: #selector(createPollTapped), for: .touchUpInside)
     }
 
-    // MARK: - Load polls
-    private func loadPolls() {
-        activityIndicator.startAnimating()
-        emptyLabel.isHidden = true
-
-        APIClient.shared.getPolls { [weak self] result in
-            DispatchQueue.main.async {
-                self?.activityIndicator.stopAnimating()
-                switch result {
-                case .success(let list):
-                    self?.polls = list
-                    self?.tableView.reloadData()
-                    self?.emptyLabel.isHidden = !list.isEmpty
-                case .failure:
-                    self?.emptyLabel.text = "Không thể tải danh sách poll.\nKiểm tra server đang chạy chưa."
-                    self?.emptyLabel.isHidden = false
-                }
-            }
-        }
-    }
-
     // MARK: - Actions
-    private func loadPolls(completion: (() -> Void)? = nil) {
-        activityIndicator.startAnimating()
-        emptyLabel.isHidden = true
-
-        APIClient.shared.getPolls { [weak self] result in
-            DispatchQueue.main.async {
-                self?.activityIndicator.stopAnimating()
-                completion?()
-                switch result {
-                case .success(let list):
-                    self?.polls = list
-                    self?.tableView.reloadData()
-                    self?.emptyLabel.isHidden = !list.isEmpty
-                case .failure:
-                    self?.emptyLabel.text = "Không thể tải danh sách poll.\nKiểm tra server đang chạy chưa."
-                    self?.emptyLabel.isHidden = false
-                }
-            }
-        }
-    }
-    
     @objc private func refreshTapped() {
-        let btn = navigationItem.rightBarButtonItem
-        btn?.isEnabled = false
-        loadPolls {
-            DispatchQueue.main.async { btn?.isEnabled = true }
-        }
+        navigationItem.rightBarButtonItem?.isEnabled = false
+        viewModel.loadPolls()   // nút bật lại khi isLoading = false (binding)
     }
-    
+
     @objc private func createPollTapped() {
         let alert = UIAlertController(title: "Tạo Poll Mới", message: "Nhập câu hỏi cho poll", preferredStyle: .alert)
         alert.addTextField { tf in
@@ -182,24 +205,9 @@ final class MainViewController: UIViewController {
         alert.addAction(UIAlertAction(title: "Tạo", style: .default) { [weak self, weak alert] _ in
             let title = alert?.textFields?.first?.text?.trimmingCharacters(in: .whitespaces) ?? ""
             guard !title.isEmpty else { return }
-            self?.createPoll(title: title)
+            self?.viewModel.createPoll(title: title)
         })
         present(alert, animated: true)
-    }
-
-    private func createPoll(title: String) {
-        createButton.isEnabled = false
-        APIClient.shared.createPoll(title: title) { [weak self] result in
-            DispatchQueue.main.async {
-                self?.createButton.isEnabled = true
-                switch result {
-                case .success(let poll):
-                    self?.openPoll(poll)
-                case .failure(let error):
-                    self?.showError(error.localizedDescription)
-                }
-            }
-        }
     }
 
     private func openPoll(_ poll: Poll) {

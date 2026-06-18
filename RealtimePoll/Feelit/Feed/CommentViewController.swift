@@ -1,21 +1,17 @@
 import UIKit
+import Combine
 
 // MARK: - CommentViewController
 /// Bottom sheet xem + gửi bình luận realtime cho 1 post.
 /// Present bằng pageSheet (detents) từ FeedViewController.
 final class CommentViewController: UIViewController {
 
-    private let postId: String
-    private let postTitle: String
-    private var commentCount: Int
+    private let viewModel: CommentViewModel
+    private var cancellables = Set<AnyCancellable>()
 
-    private var comments: [Comment] = []
-
-    // Identity tạm cho MVP
-    private let myUserId = DeviceIdManager.shared.deviceId
-    private let myUsername = UserDefaults.standard.string(forKey: "feelit_username") ?? "Bạn"
-
-    private let socketManager = CommentSocketManager()
+    /// Proxy đọc cho table (nguồn: ViewModel).
+    private var comments: [Comment] { viewModel.comments }
+    private var didInitialScroll = false
 
     // MARK: UI
     private let handleBar = UIView()
@@ -33,9 +29,7 @@ final class CommentViewController: UIViewController {
 
     // MARK: Init
     init(postId: String, postTitle: String, initialCommentCount: Int) {
-        self.postId = postId
-        self.postTitle = postTitle
-        self.commentCount = initialCommentCount
+        self.viewModel = CommentViewModel(postId: postId, initialCommentCount: initialCommentCount)
         super.init(nibName: nil, bundle: nil)
     }
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
@@ -53,19 +47,43 @@ final class CommentViewController: UIViewController {
         updateTitle()
         updateSendState()
 
-        socketManager.delegate = self
-        socketManager.connectForPost(postId: postId)
-        loadComments()
-    }
-
-    override func viewWillDisappear(_ animated: Bool) {
-        super.viewWillDisappear(animated)
-        if isBeingDismissed {
-            socketManager.disconnect(postId: postId)
-        }
+        bindViewModel()
+        viewModel.loadComments()
     }
 
     deinit { NotificationCenter.default.removeObserver(self) }
+
+    // MARK: - Binding
+    private func bindViewModel() {
+        viewModel.$comments
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] comments in
+                guard let self = self else { return }
+                let wasNearBottom = self.isNearBottom            // tính trên layout cũ
+                self.tableView.reloadData()
+                self.updateEmptyState()
+                if !self.didInitialScroll && !comments.isEmpty {
+                    self.didInitialScroll = true
+                    self.scrollToBottom(animated: false)
+                } else if wasNearBottom {
+                    self.scrollToBottom(animated: true)
+                }
+            }
+            .store(in: &cancellables)
+
+        viewModel.$commentCount
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in self?.updateTitle() }
+            .store(in: &cancellables)
+
+        viewModel.$isLoading
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] loading in
+                if loading { self?.spinner.startAnimating() }
+                else { self?.spinner.stopAnimating() }
+            }
+            .store(in: &cancellables)
+    }
 
     // MARK: Header
     private func setupHeader() {
@@ -114,7 +132,7 @@ final class CommentViewController: UIViewController {
         topBorder.translatesAutoresizingMaskIntoConstraints = false
         inputBar.addSubview(topBorder)
 
-        inputAvatar.configure(username: myUsername)
+        inputAvatar.configure(username: viewModel.currentUsername)
 
         textField.backgroundColor = FeelitColors.surfaceElevated
         textField.layer.cornerRadius = 18
@@ -246,75 +264,18 @@ final class CommentViewController: UIViewController {
     }
 
     // MARK: Data
-    private func loadComments() {
-        fetchComments(showSpinner: true)
-    }
-
-    private func fetchComments(showSpinner: Bool) {
-        if showSpinner { spinner.startAnimating() }
-        APIClient.shared.getComments(postId: postId) { [weak self] result in
-            DispatchQueue.main.async {
-                guard let self = self else { return }
-                self.spinner.stopAnimating()
-                switch result {
-                case .success(let list):
-                    self.comments = list
-                    self.commentCount = list.count
-                    self.updateTitle()
-                    self.tableView.reloadData()
-                    self.updateEmptyState()
-                    self.scrollToBottom(animated: false)
-                case .failure(let error):
-                    print("⚠️ getComments failed: \(error)")
-                    self.updateEmptyState()
-                }
-            }
-        }
-    }
-
     @objc private func sendTapped() {
         let content = textField.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         guard !content.isEmpty else { return }
 
         textField.text = ""
         updateSendState()
-
-        // 1) Optimistic: hiện ngay comment của mình (id tạm) để UX mượt,
-        //    không phụ thuộc response của BE.
-        let now = ISO8601DateFormatter().string(from: Date())
-        let temp = Comment(id: "local-\(UUID().uuidString)", postId: postId,
-                           userId: myUserId, username: myUsername, content: content, createdAt: now)
-        appendCommentIfNeeded(temp)
-        commentCount += 1
-        updateTitle()
-
-        // 2) Gửi lên server; xong thì đồng bộ lại để có id/thời gian/số đếm thật
-        //    (đồng thời thay thế comment tạm). Re-fetch cả khi fail vì BE có thể đã lưu
-        //    nhưng trả response khác shape.
-        APIClient.shared.postComment(postId: postId, userId: myUserId,
-                                     username: myUsername, content: content) { [weak self] result in
-            DispatchQueue.main.async {
-                guard let self = self else { return }
-                if case .failure(let error) = result {
-                    print("⚠️ postComment failed/decode: \(error) — reconciling from server")
-                }
-                self.fetchComments(showSpinner: false)
-            }
-        }
-    }
-
-    private func appendCommentIfNeeded(_ comment: Comment) {
-        guard !comments.contains(where: { $0.id == comment.id }) else { return }
-        let wasNearBottom = isNearBottom
-        comments.append(comment)
-        updateEmptyState()
-        tableView.insertRows(at: [IndexPath(row: comments.count - 1, section: 0)], with: .automatic)
-        if wasNearBottom { scrollToBottom(animated: true) }
+        viewModel.sendComment(content: content)   // optimistic + reconcile trong ViewModel
     }
 
     // MARK: Helpers
     private func updateTitle() {
-        titleLabel.text = "\(commentCount) bình luận"
+        titleLabel.text = "\(viewModel.commentCount) bình luận"
     }
 
     private func updateEmptyState() {
@@ -379,15 +340,5 @@ extension CommentViewController: UITextFieldDelegate {
     func textFieldShouldReturn(_ textField: UITextField) -> Bool {
         sendTapped()
         return false
-    }
-}
-
-// MARK: - CommentSocketDelegate
-extension CommentViewController: CommentSocketDelegate {
-    func didReceiveNewComment(_ comment: Comment, commentCount: Int) {
-        guard comment.postId == postId else { return }
-        self.commentCount = commentCount
-        updateTitle()
-        appendCommentIfNeeded(comment)
     }
 }

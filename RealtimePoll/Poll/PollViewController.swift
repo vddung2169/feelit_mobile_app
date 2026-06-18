@@ -1,17 +1,17 @@
 import UIKit
+import Combine
 
 final class PollViewController: UIViewController {
 
     // MARK: - State
-    private var poll: Poll
-    private var hasVoted: Bool
-    private var countdownTimer: Timer?
-    private var chartEntries: [(yes: Double, no: Double)] = []
-    private let socketManager = SocketManager()
+    private let poll: Poll                 // giữ để share poll vào chat
+    private let viewModel: PollViewModel
+    private var cancellables = Set<AnyCancellable>()
+    private var didShowWinner = false
 
     init(poll: Poll) {
         self.poll = poll
-        self.hasVoted = PollRepository.shared.hasVoted(pollId: poll.id)
+        self.viewModel = PollViewModel(poll: poll)
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -166,20 +166,132 @@ final class PollViewController: UIViewController {
         super.viewDidLoad()
         setupUI()
         setupActions()
-        applyPollData(poll)
-        if poll.isActive {           // ← chỉ countdown nếu poll đang active
-                startCountdown()
-            }
-        connectSocket()
-        loadChartHistory()
+        bindViewModel()
+        viewModel.onViewDidLoad()
     }
 
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
-        countdownTimer?.invalidate()
-        socketManager.leavePoll(pollId: poll.id)
-        socketManager.delegate = nil
-        socketManager.disconnect()
+        viewModel.onViewDisappear()
+    }
+
+    // MARK: - Binding
+    private func bindViewModel() {
+        viewModel.$pollTitle
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] in self?.titleLabel.text = $0 }
+            .store(in: &cancellables)
+
+        viewModel.$countdownText
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] text in
+                self?.countdownLabel.text = text
+                self?.updateCountdownColor()
+            }
+            .store(in: &cancellables)
+
+        viewModel.$isUrgent
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in self?.updateCountdownColor() }
+            .store(in: &cancellables)
+
+        viewModel.$yesPercentageText
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] in self?.yesPercentLabel.text = $0 }
+            .store(in: &cancellables)
+
+        viewModel.$noPercentageText
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] in self?.noPercentLabel.text = $0 }
+            .store(in: &cancellables)
+
+        viewModel.$progressValue
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] value in
+                UIView.animate(withDuration: 0.4) { self?.progressBar.setProgress(value, animated: true) }
+            }
+            .store(in: &cancellables)
+
+        viewModel.$voteTotalsText
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] in self?.voteTotalsLabel.text = $0 }
+            .store(in: &cancellables)
+
+        Publishers.CombineLatest(viewModel.$canVote, viewModel.$isVotingLoading)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] canVote, loading in
+                let enabled = canVote && !loading
+                self?.yesButton.isEnabled = enabled
+                self?.noButton.isEnabled = enabled
+            }
+            .store(in: &cancellables)
+
+        viewModel.$isVotingLoading
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] loading in
+                if loading { self?.activityIndicator.startAnimating() }
+                else { self?.activityIndicator.stopAnimating() }
+            }
+            .store(in: &cancellables)
+
+        viewModel.$voteButtonSubtitle
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] subtitle in
+                self?.yesButton.configuration?.subtitle = subtitle
+                self?.noButton.configuration?.subtitle = subtitle
+            }
+            .store(in: &cancellables)
+
+        viewModel.$errorMessage
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] message in
+                if let message = message {
+                    self?.errorLabel.text = message
+                    self?.errorLabel.isHidden = false
+                } else {
+                    self?.errorLabel.isHidden = true
+                }
+            }
+            .store(in: &cancellables)
+
+        viewModel.$connectionStatus
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] status in self?.applyConnectionStatus(status) }
+            .store(in: &cancellables)
+
+        viewModel.$chartEntries
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] entries in self?.chartView.setData(entries) }
+            .store(in: &cancellables)
+
+        viewModel.$winnerInfo
+            .receive(on: DispatchQueue.main)
+            .compactMap { $0 }
+            .sink { [weak self] info in self?.presentWinner(info) }
+            .store(in: &cancellables)
+    }
+
+    private func updateCountdownColor() {
+        if viewModel.countdownText == "ENDED" {
+            countdownLabel.textColor = .secondaryLabel
+        } else if viewModel.isUrgent {
+            countdownLabel.textColor = .systemRed
+        } else {
+            countdownLabel.textColor = .systemOrange
+        }
+    }
+
+    private func applyConnectionStatus(_ status: PollViewModel.ConnectionStatus) {
+        switch status {
+        case .connecting:
+            connectionBadge.text = "● Connecting"; connectionBadge.textColor = .systemGray
+        case .live:
+            connectionBadge.text = "● Live"; connectionBadge.textColor = .systemGreen
+        case .reconnecting:
+            connectionBadge.text = "● Reconnecting..."; connectionBadge.textColor = .systemOrange
+        case .ended:
+            connectionBadge.text = "● Ended"; connectionBadge.textColor = .secondaryLabel
+        }
     }
 
     // MARK: - UI Setup
@@ -268,147 +380,31 @@ final class PollViewController: UIViewController {
         present(nav, animated: true)
     }
 
-    // MARK: - Apply poll data to UI
-    private func applyPollData(_ poll: Poll) {
-        titleLabel.text = poll.title
-
-        let yes = poll.yesPercentage
-        let no  = poll.noPercentage
-        yesPercentLabel.text = String(format: "YES  %.0f%%", yes)
-        noPercentLabel.text  = String(format: "%.0f%%  NO", no)
-        progressBar.setProgress(Float(yes / 100), animated: true)
-        voteTotalsLabel.text = "Yes: \(poll.yesCount)  |  No: \(poll.noCount)  |  Total: \(poll.totalVotes)"
-
-        // Disable buttons if already voted or poll finished
-        let canVote = poll.isActive && !hasVoted
-        yesButton.isEnabled = canVote
-        noButton.isEnabled  = canVote
-
-        if hasVoted && poll.isActive {
-            yesButton.configuration?.subtitle = "Voted"
-            noButton.configuration?.subtitle  = "Voted"
-        }
-
-        if !poll.isActive, let winner = poll.winner {
-            showWinner(winner, yesCount: poll.yesCount, noCount: poll.noCount)
-        }
-    }
-
-    // MARK: - Countdown
-    private func startCountdown() {
-        updateCountdownLabel()
-        countdownTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
-            self?.updateCountdownLabel()
-        }
-    }
-
-    private func updateCountdownLabel() {
-        guard let endsAt = poll.endsAtDate else {
-            countdownLabel.text = "--:--"
-            return
-        }
-        let remaining = max(0, endsAt.timeIntervalSinceNow)
-        let mins = Int(remaining) / 60
-        let secs = Int(remaining) % 60
-        countdownLabel.text = String(format: "%02d:%02d", mins, secs)
-
-        if remaining <= 0 {
-            countdownTimer?.invalidate()
-            countdownLabel.text = "00:00"
-            countdownLabel.textColor = .systemRed
-            disableVoting(message: "Waiting for final result...")
-        } else if remaining <= 30 {
-            countdownLabel.textColor = .systemRed
-        }
-    }
-
     // MARK: - Vote
     @objc private func voteTapped(_ sender: UIButton) {
         let choice = (sender == yesButton) ? "YES" : "NO"
-        setVotingLoading(true)
-        errorLabel.isHidden = true
-
-        PollRepository.shared.submitVote(pollId: poll.id, choice: choice) { [weak self] result in
-            DispatchQueue.main.async {
-                self?.setVotingLoading(false)
-                switch result {
-                case .success:
-                    self?.hasVoted = true
-                    self?.yesButton.isEnabled = false
-                    self?.noButton.isEnabled  = false
-                    self?.yesButton.configuration?.subtitle = "Voted ✓"
-                    self?.noButton.configuration?.subtitle  = "Voted ✓"
-                    // Đã vote → hẹn local notification khi poll kết thúc.
-                    // (Chạy được trên Simulator + khi app đã đóng; fallback cho APNs.)
-                    self?.scheduleCompletionNotification()
-                case .failure(let error):
-                    self?.showError(error.localizedDescription)
-                }
-            }
-        }
+        viewModel.submitVote(choice: choice)
     }
 
-    // MARK: - Completion notification
-    /// Hẹn local notification tại thời điểm poll kết thúc. Chỉ gọi sau khi user đã vote.
-    private func scheduleCompletionNotification() {
-        guard poll.isActive else { return }
-        let fireDate = poll.endsAtDate ?? Date().addingTimeInterval(60)
-        guard fireDate.timeIntervalSinceNow > 0 else { return }
-        NotificationManager.shared.schedulePollFinished(pollId: poll.id, title: poll.title, at: fireDate)
-    }
+    // MARK: - Winner (build text từ winnerInfo, hiện popup)
+    private func presentWinner(_ info: PollViewModel.WinnerInfo) {
+        guard !didShowWinner else { return }
+        didShowWinner = true
 
-    // MARK: - Socket
-    private func connectSocket() {
-        // Poll đã ended → không cần socket, hiện kết quả luôn
-        guard poll.isActive else {
-            connectionBadge.text = "● Ended"
-            connectionBadge.textColor = .secondaryLabel
-            return
-        }
-        socketManager.delegate = self
-        socketManager.connect()
-        socketManager.joinPoll(pollId: poll.id)
-    }
-
-    // MARK: - Chart history
-    private func loadChartHistory() {
-        PollRepository.shared.loadChart(pollId: poll.id) { [weak self] result in
-            DispatchQueue.main.async {
-                if case .success(let points) = result {
-                    self?.chartEntries = points.map { ($0.yesPercentage, $0.noPercentage) }
-                    self?.chartView.setData(self?.chartEntries ?? [])
-                }
-            }
-        }
-    }
-
-    // MARK: - Winner
-    private func showWinner(_ winner: String, yesCount: Int, noCount: Int) {
-        countdownTimer?.invalidate()
-        countdownLabel.text = "ENDED"
-        countdownLabel.textColor = .secondaryLabel
-        disableVoting(message: nil)
-
-        // Hiện popup kết quả
-        let emoji: String
         let resultText: String
-        switch winner {
+        switch info.winner {
         case "YES":
-            emoji = "🎉"
-            resultText = "YES THẮNG!\n\nYES: \(yesCount) votes\nNO: \(noCount) votes"
+            resultText = "YES THẮNG!\n\nYES: \(info.yesCount) votes\nNO: \(info.noCount) votes"
         case "NO":
-            emoji = "🎉"
-            resultText = "NO THẮNG!\n\nNO: \(noCount) votes\nYES: \(yesCount) votes"
+            resultText = "NO THẮNG!\n\nNO: \(info.noCount) votes\nYES: \(info.yesCount) votes"
         case "TIE":
-            emoji = "🤝"
-            resultText = "HÒA!\n\nYES: \(yesCount) votes\nNO: \(noCount) votes"
+            resultText = "HÒA!\n\nYES: \(info.yesCount) votes\nNO: \(info.noCount) votes"
         default:
-            emoji = "🗳️"
             resultText = "KHÔNG CÓ KẾT QUẢ\n(chưa có vote nào)"
         }
 
-        showResultPopup(emoji: emoji, resultText: resultText, winner: winner,
-                       yesCount: yesCount, noCount: noCount)
+        showResultPopup(emoji: info.emoji, resultText: resultText, winner: info.winner,
+                        yesCount: info.yesCount, noCount: info.noCount)
     }
 
     private func showResultPopup(emoji: String, resultText: String,
@@ -586,74 +582,11 @@ final class PollViewController: UIViewController {
         }
     }
     // MARK: - Helpers
-    private func setVotingLoading(_ loading: Bool) {
-        if loading { activityIndicator.startAnimating() }
-        else { activityIndicator.stopAnimating() }
-        yesButton.isEnabled = !loading && !hasVoted
-        noButton.isEnabled  = !loading && !hasVoted
-    }
-
-    private func disableVoting(message: String?) {
-        yesButton.isEnabled = false
-        noButton.isEnabled  = false
-        if let msg = message {
-            yesButton.configuration?.subtitle = msg
-        }
-    }
-
-    private func showError(_ message: String) {
-        errorLabel.text = message
-        errorLabel.isHidden = false
-    }
-
     private func vDivider() -> UIView {
         let v = UIView()
         v.backgroundColor = .separator
         v.heightAnchor.constraint(equalToConstant: 1).isActive = true
         return v
-    }
-}
-
-// MARK: - SocketManagerDelegate
-extension PollViewController: SocketManagerDelegate {
-
-    func socketDidConnect() {
-        DispatchQueue.main.async {
-            self.connectionBadge.text = "● Live"
-            self.connectionBadge.textColor = .systemGreen
-        }
-    }
-
-    func socketDidDisconnect() {
-        DispatchQueue.main.async {
-            self.connectionBadge.text = "● Reconnecting..."
-            self.connectionBadge.textColor = .systemOrange
-        }
-    }
-
-    func socketDidReceiveVoteUpdate(_ update: VoteResponse) {
-        // Update progress bar + labels
-        let yes = update.yesPercentage
-        let no  = update.noPercentage
-
-        yesPercentLabel.text = String(format: "YES  %.0f%%", yes)
-        noPercentLabel.text  = String(format: "%.0f%%  NO", no)
-        voteTotalsLabel.text = "Yes: \(update.yesCount)  |  No: \(update.noCount)  |  Total: \(update.totalVotes)"
-
-        UIView.animate(withDuration: 0.4) {
-            self.progressBar.setProgress(Float(yes / 100), animated: true)
-        }
-
-        // Append chart point
-        chartEntries.append((yes, no))
-        if chartEntries.count > 100 { chartEntries.removeFirst() }
-        chartView.setData(chartEntries)
-    }
-
-    func socketDidReceivePollFinished(_ result: PollFinished) {
-        // Đang xem live → đã thấy kết quả, huỷ local notification để khỏi báo trùng.
-        NotificationManager.shared.cancel(pollId: result.pollId)
-        showWinner(result.winner, yesCount: result.yesCount, noCount: result.noCount)
     }
 }
 
