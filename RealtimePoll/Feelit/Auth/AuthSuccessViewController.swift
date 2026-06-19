@@ -91,10 +91,7 @@ final class AuthSuccessViewController: UIViewController {
 
     // MARK: Actions
     @objc private func continueTapped() {
-        guard let window = view.window else { return }
-        let home = FeelitTabBarController()
-        UIView.transition(with: window, duration: 0.3, options: .transitionCrossDissolve) {
-            window.rootViewController = home
-        }
+        // Vào onboarding (chọn tên người dùng → chủ đề quan tâm) trước khi vào Home.
+        navigationController?.pushViewController(OnboardingUsernameViewController(), animated: true)
     }
 }
