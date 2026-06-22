@@ -167,7 +167,7 @@ curl http://localhost:3001/
 
 ### Bước 1 — Mở Xcode
 ```bash
-open RealtimePoll.xcodeproj
+open Feelit.xcodeproj
 ```
 
 ### Bước 2 — Thêm Starscream (nếu chưa có)
@@ -177,7 +177,7 @@ open RealtimePoll.xcodeproj
 https://github.com/daltoniam/Starscream
 ```
 Version: **Up to Next Major 4.0.6**  
-Target: **RealtimePoll** (không phải Tests)
+Target: **Feelit** (không phải Tests)
 
 ### Bước 3 — Kiểm tra Info.plist
 
@@ -221,7 +221,7 @@ open -a Simulator
 ```bash
 # Lấy đường dẫn app vừa build
 APP=$(find ~/Library/Developer/Xcode/DerivedData \
-  -name "RealtimePoll.app" -type d \
+  -name "Feelit.app" -type d \
   -not -path "*/Index.noindex/*" 2>/dev/null | head -1)
 
 echo "App path: $APP"
@@ -261,7 +261,7 @@ realtime-poll-server/
 
 ### iOS App
 ```
-RealtimePoll/
+Feelit/
 ├── AppDelegate.swift                 # Setup UNUserNotificationCenter
 ├── SceneDelegate.swift               # Root = AuthNavigationController
 │
@@ -269,7 +269,7 @@ RealtimePoll/
 │   ├── PollWidget.swift              # WidgetKit + SwiftUI views
 │   └── PollWidgetData.swift          # Models + mock data cho widget
 │
-├── RealtimePoll/
+├── Feelit/
 │   ├── Feelit/
 │   │   ├── Auth/                     # Flow đăng nhập/đăng ký
 │   │   │   ├── AuthWelcomeViewController.swift
