@@ -5,9 +5,19 @@ import UIKit
 /// Nhóm nội dung căn giữa; bấm "Tiếp tục" → vào Home.
 final class AuthSuccessViewController: UIViewController {
 
+    /// Đích đến khi bấm "Tiếp tục".
+    enum Destination {
+        case onboarding   // đăng ký mới → chọn username + chủ đề
+        case mainApp      // đăng nhập → vào thẳng Home
+    }
+
     private let email: String
-    init(email: String) {
+    private let titleText: String
+    private let destination: Destination
+    init(email: String, title: String = "Đăng nhập thành công!", destination: Destination = .onboarding) {
         self.email = email
+        self.titleText = title
+        self.destination = destination
         super.init(nibName: nil, bundle: nil)
     }
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
@@ -51,6 +61,7 @@ final class AuthSuccessViewController: UIViewController {
         super.viewDidLoad()
         overrideUserInterfaceStyle = .light
         view.backgroundColor = AuthTheme.background
+        titleLabel.text = titleText
         setupLayout()
     }
 
@@ -91,7 +102,13 @@ final class AuthSuccessViewController: UIViewController {
 
     // MARK: Actions
     @objc private func continueTapped() {
-        // Vào onboarding (chọn tên người dùng → chủ đề quan tâm) trước khi vào Home.
-        navigationController?.pushViewController(OnboardingUsernameViewController(), animated: true)
+        switch destination {
+        case .onboarding:
+            // Đăng ký mới: chọn tên người dùng → chủ đề quan tâm trước khi vào Home.
+            navigationController?.pushViewController(OnboardingUsernameViewController(), animated: true)
+        case .mainApp:
+            // Đăng nhập: vào thẳng Home.
+            AppRoot.switchToMain()
+        }
     }
 }

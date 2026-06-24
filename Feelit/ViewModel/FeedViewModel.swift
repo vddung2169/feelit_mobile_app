@@ -15,6 +15,11 @@ final class FeedViewModel {
     @Published private(set) var isLoading = false
     @Published private(set) var errorMessage: String? = nil
 
+    // MARK: - Static (mock) — section "Đang Hot" + Market Pulse chưa có backend
+    let trendingPolls = FEMock.polls
+    let marketPulseBullish = FEMock.marketPulseBullish
+    let marketPulseVoters = FEMock.marketPulseVoters
+
     // MARK: - Private
     private var cancellables = Set<AnyCancellable>()
 
@@ -57,6 +62,13 @@ final class FeedViewModel {
                     self.posts = self.posts                       // phát lại để View reload (revert)
                 }
             }
+        }
+    }
+
+    /// Tạo poll mới (mặc định 1 phút). Trả poll cho View để điều hướng.
+    func createPoll(title: String, completion: @escaping (Result<Poll, Error>) -> Void) {
+        APIClient.shared.createPoll(title: title, durationSeconds: 60) { result in
+            DispatchQueue.main.async { completion(result) }
         }
     }
 

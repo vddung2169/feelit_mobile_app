@@ -1,0 +1,94 @@
+# fastlane/Fastfile
+
+default_platform(:ios)
+
+platform :ios do
+
+  # ════════════════════════════════════════
+  # LANE: beta — Build + Upload TestFlight
+  # Chạy: fastlane beta
+  # ════════════════════════════════════════
+  desc "Build app và upload lên TestFlight"
+  lane :beta do
+    # 0. Khai báo API Key rõ ràng — tránh phụ thuộc Xcode account session
+    api_key = app_store_connect_api_key(
+      key_id: ENV["APP_STORE_CONNECT_API_KEY_KEY_ID"],
+      issuer_id: ENV["APP_STORE_CONNECT_API_KEY_ISSUER_ID"],
+      key_filepath: ENV["APP_STORE_CONNECT_API_KEY_KEY_FILEPATH"]
+    )
+
+    # 1. Tự tăng build number (CFBundleVersion) +1 mỗi lần chạy
+    increment_build_number(
+      xcodeproj: "Feelit.xcodeproj"
+    )
+
+    # 2. Cài đặt code signing tự động (Xcode managed signing)
+    update_code_signing_settings(
+      use_automatic_signing: true,
+      path: "Feelit.xcodeproj",
+      targets: ["Feelit", "PollWidgetExtension"]
+    )
+
+    # 3. Build .ipa — dùng project (không phải workspace)
+    build_app(
+      scheme: "Feelit",
+      project: "Feelit.xcodeproj",
+      export_method: "app-store",
+      configuration: "Release",
+      clean: true,
+      output_directory: "./build",
+      output_name: "Feelit.ipa",
+      xcargs: "-allowProvisioningUpdates"
+    )
+
+    # 4. Upload lên TestFlight — dùng cùng api_key
+    upload_to_testflight(
+      api_key: api_key,
+      skip_waiting_for_build_processing: true,
+      ipa: "./build/Feelit.ipa",
+      changelog: "Build tự động qua Fastlane CI."
+    )
+
+    puts "✅ Đã upload lên TestFlight thành công!"
+  end
+
+  # ════════════════════════════════════════
+  # LANE: beta_with_notes — có changelog tùy chỉnh
+  # Chạy: fastlane beta_with_notes notes:"Fix bug vote duplicate"
+  # ════════════════════════════════════════
+  desc "Build + Upload TestFlight với changelog tùy chỉnh"
+  lane :beta_with_notes do |options|
+    increment_build_number(xcodeproj: "Feelit.xcodeproj")
+
+    build_app(
+      scheme: "Feelit",
+      project: "Feelit.xcodeproj",
+      export_method: "app-store",
+      configuration: "Release",
+      clean: true,
+      output_directory: "./build",
+      output_name: "Feelit.ipa"
+    )
+
+    upload_to_testflight(
+      skip_waiting_for_build_processing: true,
+      ipa: "./build/Feelit.ipa",
+      changelog: options[:notes] || "Build mới."
+    )
+  end
+
+  # ════════════════════════════════════════
+  # LANE: add_devices — đăng ký thiết bị test (cho Ad Hoc)
+  # ════════════════════════════════════════
+  desc "Đăng ký UDID thiết bị test mới"
+  lane :add_devices do
+    register_devices(
+      devices_file: "./fastlane/devices.txt"
+    )
+    update_code_signing_settings(
+      use_automatic_signing: true,
+      path: "Feelit.xcodeproj"
+    )
+  end
+
+end

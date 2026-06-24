@@ -13,6 +13,7 @@ final class AuthPasswordViewController: AuthFormViewController {
     private let displayContact: String   // bản hiển thị cho màn OTP
     private let channel: String          // "email" | "sms"
     private let isRegister: Bool
+    private let registrationContext: RegistrationContext?  // != nil → flow đăng ký nhiều bước
     private let minLength = 8
 
     private let viewModel = AuthViewModel()
@@ -23,6 +24,16 @@ final class AuthPasswordViewController: AuthFormViewController {
         self.displayContact = displayContact ?? contact
         self.channel = channel
         self.isRegister = isRegister
+        self.registrationContext = nil
+        super.init(nibName: nil, bundle: nil)
+    }
+    /// Bước nhập mật khẩu của flow đăng ký nhiều bước (email/SĐT đã xác minh OTP).
+    init(registration context: RegistrationContext) {
+        self.contact = ""
+        self.displayContact = ""
+        self.channel = context.primaryChannel
+        self.isRegister = true
+        self.registrationContext = context
         super.init(nibName: nil, bundle: nil)
     }
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
@@ -79,7 +90,7 @@ final class AuthPasswordViewController: AuthFormViewController {
     }
 
     override func makeFieldContent() {
-        passwordField.attributedPlaceholder = placeholder("Nhập mật khẩu của bạn")
+        passwordField.attributedPlaceholder = placeholder(L10n.Auth.passwordPlaceholder)
         installField(passwordField, trailingInset: 52)
         fieldContainer.addSubview(eyeButton)
         NSLayoutConstraint.activate([
@@ -117,11 +128,19 @@ final class AuthPasswordViewController: AuthFormViewController {
             .sink { [weak self] userId in self?.goToOTP(userId: userId) }
             .store(in: &cancellables)
 
-        // Đăng nhập thành công → vào thẳng app chính.
+        // Đăng nhập thành công → màn "Đăng nhập thành công!" rồi vào app chính.
         viewModel.$didCompleteAuth
             .receive(on: DispatchQueue.main)
             .filter { $0 }
-            .sink { _ in AppRoot.switchToMain() }
+            .sink { [weak self] _ in
+                guard let self else { return }
+                self.view.endEditing(true)
+                self.navigationController?.pushViewController(
+                    AuthSuccessViewController(email: self.displayContact,
+                                              title: "Đăng nhập thành công!",
+                                              destination: .mainApp),
+                    animated: true)
+            }
             .store(in: &cancellables)
     }
 
@@ -163,6 +182,17 @@ final class AuthPasswordViewController: AuthFormViewController {
     override func didTapContinue() {
         view.endEditing(true)
         let password = passwordField.text ?? ""
+
+        // Flow đăng ký nhiều bước: lưu mật khẩu rồi sang bước thu contact bổ sung.
+        if let ctx = registrationContext {
+            ctx.password = password
+            let next: UIViewController = ctx.finalNeedsPhone
+                ? AuthPhoneViewController(finalRegistration: ctx)
+                : AuthEmailInputViewController(finalRegistration: ctx)
+            navigationController?.pushViewController(next, animated: true)
+            return
+        }
+
         if isRegister {
             viewModel.register(email: channel == "email" ? contact : nil,
                                phone:  channel == "sms"   ? contact : nil,

@@ -22,6 +22,18 @@ struct RefreshTokenRequest: Codable {
     let refreshToken: String
 }
 
+struct RegisterOTPRequest: Codable {
+    let email: String?
+    let phone: String?
+}
+
+struct CompleteRegistrationRequest: Codable {
+    let userId: String
+    let email: String?
+    let phone: String?
+    let password: String
+}
+
 struct ForgotPasswordRequest: Codable {
     let emailOrPhone: String
 }

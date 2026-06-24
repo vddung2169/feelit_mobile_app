@@ -57,7 +57,7 @@ final class AuthForgotPasswordViewController: UIViewController {
         overrideUserInterfaceStyle = .light
         view.backgroundColor = AuthTheme.background
         emailField.delegate = self
-        emailField.attributedPlaceholder = AuthUI.placeholder("Nhập Email của bạn")
+        emailField.attributedPlaceholder = AuthUI.placeholder(L10n.Auth.emailPlaceholder)
         emailField.addTarget(self, action: #selector(editingChanged), for: .editingChanged)
         AuthUI.install(emailField, in: fieldContainer)
         setupLayout()

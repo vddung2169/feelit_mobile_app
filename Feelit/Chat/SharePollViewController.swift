@@ -5,13 +5,8 @@ import UIKit
 /// Gửi message poll-share qua API messages hiện có → recipient nhận realtime + lưu lịch sử.
 final class SharePollViewController: UIViewController {
 
-    private let poll: Poll
-
-    // Demo app chỉ có 2 user cố định (xem ChatLoginViewController).
-    private let allowedIds = ["test01", "test02"]
-    private let myIdKey = "chat_my_id"
-
-    private var recipients: [String] = []
+    private let viewModel: SharePollViewModel
+    private var recipients: [String] { viewModel.recipients }
 
     private let tableView: UITableView = {
         let t = UITableView(frame: .zero, style: .insetGrouped)
@@ -29,7 +24,7 @@ final class SharePollViewController: UIViewController {
     }()
 
     init(poll: Poll) {
-        self.poll = poll
+        self.viewModel = SharePollViewModel(poll: poll)
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -43,30 +38,13 @@ final class SharePollViewController: UIViewController {
         navigationItem.leftBarButtonItem = UIBarButtonItem(
             barButtonSystemItem: .cancel, target: self, action: #selector(cancelTapped))
 
-        computeRecipients()
         setupLayout()
 
-        previewLabel.text = "📊 \(poll.title)"
+        previewLabel.text = viewModel.previewText
 
         tableView.dataSource = self
         tableView.delegate = self
         tableView.register(UITableViewCell.self, forCellReuseIdentifier: "contact")
-    }
-
-    private func computeRecipients() {
-        let myId = UserDefaults.standard.string(forKey: myIdKey)
-        if let myId = myId {
-            recipients = allowedIds.filter { $0 != myId }
-        } else {
-            recipients = allowedIds
-        }
-    }
-
-    /// Người gửi: ưu tiên id đã đăng nhập; nếu chưa có thì suy ra là user còn lại.
-    private func senderId(for recipient: String) -> String {
-        UserDefaults.standard.string(forKey: myIdKey)
-            ?? allowedIds.first(where: { $0 != recipient })
-            ?? recipient
     }
 
     private func setupLayout() {
@@ -89,20 +67,15 @@ final class SharePollViewController: UIViewController {
     }
 
     private func share(to recipient: String) {
-        let sender = senderId(for: recipient)
-        let content = SharedPoll.encode(pollId: poll.id, title: poll.title, status: poll.status)
-
         view.isUserInteractionEnabled = false
-        APIClient.shared.sendMessage(senderId: sender, receiverId: recipient, content: content) { [weak self] result in
-            DispatchQueue.main.async {
-                guard let self = self else { return }
-                self.view.isUserInteractionEnabled = true
-                switch result {
-                case .success:
-                    self.dismiss(animated: true)
-                case .failure(let error):
-                    self.showError(error.localizedDescription)
-                }
+        viewModel.share(to: recipient) { [weak self] result in
+            guard let self = self else { return }
+            self.view.isUserInteractionEnabled = true
+            switch result {
+            case .success:
+                self.dismiss(animated: true)
+            case .failure(let error):
+                self.showError(error.localizedDescription)
             }
         }
     }

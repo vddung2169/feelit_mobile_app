@@ -11,7 +11,7 @@ enum AuthUI {
         config.image = UIImage(systemName: "chevron.left",
                                withConfiguration: UIImage.SymbolConfiguration(pointSize: 16, weight: .semibold))
         config.imagePadding = 4
-        config.attributedTitle = AttributedString("Trở lại", attributes:
+        config.attributedTitle = AttributedString(L10n.Auth.backButton, attributes:
             AttributeContainer([.font: UIFont.systemFont(ofSize: 17, weight: .regular)]))
         config.baseForegroundColor = AuthTheme.textPrimary
         config.contentInsets = .init(top: 8, leading: 8, bottom: 8, trailing: 8)
@@ -65,7 +65,7 @@ enum AuthUI {
     static func continueButton(target: Any?, action: Selector) -> UIButton {
         var config = UIButton.Configuration.filled()
         config.cornerStyle = .capsule
-        config.attributedTitle = AttributedString("Tiếp tục", attributes:
+        config.attributedTitle = AttributedString(L10n.Auth.continueButton, attributes:
             AttributeContainer([.font: UIFont.systemFont(ofSize: 16, weight: .semibold)]))
         let b = UIButton(configuration: config)
         b.translatesAutoresizingMaskIntoConstraints = false

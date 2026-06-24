@@ -8,9 +8,7 @@ final class OnboardingUsernameViewController: UIViewController {
 
     override var preferredStatusBarStyle: UIStatusBarStyle { .darkContent }
 
-    private let minLen = 3
-    private let maxLen = 16
-    private let charRule = "chỉ gồm chữ cái, số, dấu chấm (.) hoặc dấu gạch dưới (_)."
+    private let viewModel = OnboardingUsernameViewModel()
 
     // MARK: UI
     private let captionLabel: UILabel = {
@@ -113,41 +111,21 @@ final class OnboardingUsernameViewController: UIViewController {
     }
 
     // MARK: Validation
-    private var trimmed: String { (input.text ?? "").trimmingCharacters(in: .whitespacesAndNewlines) }
-
-    private var hasValidChars: Bool {
-        trimmed.range(of: #"^[A-Za-z0-9._]+$"#, options: .regularExpression) != nil
-    }
-
-    private var isValid: Bool {
-        (minLen...maxLen).contains(trimmed.count) && hasValidChars
-    }
+    private var isValid: Bool { viewModel.isValid(input.text ?? "") }
 
     @objc private func editingChanged() { validate() }
 
     private func validate() {
-        let n = trimmed.count
-        if n == 0 {
-            errorLabel.isHidden = true
-        } else if n < minLen {
-            errorLabel.text = "Tên người dùng không được ngắn hơn \(minLen) ký tự\n\(charRule)"
-            errorLabel.isHidden = false
-        } else if n > maxLen {
-            errorLabel.text = "Tên người dùng không được dài quá \(maxLen) ký tự\n\(charRule)"
-            errorLabel.isHidden = false
-        } else if !hasValidChars {
-            errorLabel.text = "Tên người dùng \(charRule)"
-            errorLabel.isHidden = false
-        } else {
-            errorLabel.isHidden = true
-        }
+        let message = viewModel.errorMessage(for: input.text ?? "")
+        errorLabel.text = message
+        errorLabel.isHidden = (message == nil)
         AuthUI.setEnabled(continueButton, isValid)
     }
 
     // MARK: Actions
     @objc private func continueTapped() {
         guard isValid else { return }
-        UserDefaults.standard.set(trimmed, forKey: "feelit_username")
+        viewModel.save(input.text ?? "")
         navigationController?.pushViewController(OnboardingInterestViewController(), animated: true)
     }
 }

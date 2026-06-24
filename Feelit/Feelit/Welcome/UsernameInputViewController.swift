@@ -12,8 +12,7 @@ final class UsernameInputViewController: UIViewController {
     private let green = UIColor(hex: 0x4CAF50)
     private let onGreen = UIColor(hex: 0x111111)
 
-    private let minLen = 3
-    private let maxLen = 16
+    private let viewModel = UsernameInputViewModel()
 
     override var preferredStatusBarStyle: UIStatusBarStyle { .lightContent }
 
@@ -133,33 +132,20 @@ final class UsernameInputViewController: UIViewController {
     }
 
     // MARK: Validation
-    private var trimmed: String {
-        input.text.trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-
     private func validate() {
         placeholder.isHidden = !input.text.isEmpty
-        let n = trimmed.count
-        let valid: Bool
-        if n == 0 {
-            errorLabel.isHidden = true; valid = false
-        } else if n < minLen {
-            errorLabel.text = "The username should not be less than \(minLen) characters"
-            errorLabel.isHidden = false; valid = false
-        } else if n > maxLen {
-            errorLabel.text = "The username should not be more than \(maxLen) characters"
-            errorLabel.isHidden = false; valid = false
-        } else {
-            errorLabel.isHidden = true; valid = true
-        }
+        let message = viewModel.errorMessage(for: input.text)
+        errorLabel.text = message
+        errorLabel.isHidden = (message == nil)
+        let valid = viewModel.isValid(input.text)
         continueButton.isEnabled = valid
         continueButton.alpha = valid ? 1.0 : 0.45
     }
 
     // MARK: Actions
     @objc private func continueTapped() {
-        guard (minLen...maxLen).contains(trimmed.count) else { return }
-        UserDefaults.standard.set(trimmed, forKey: "feelit_username")
+        guard viewModel.isValid(input.text) else { return }
+        viewModel.save(input.text)
         guard let window = view.window else { return }
         let home = FeelitTabBarController()
         UIView.transition(with: window, duration: 0.3, options: .transitionCrossDissolve) {

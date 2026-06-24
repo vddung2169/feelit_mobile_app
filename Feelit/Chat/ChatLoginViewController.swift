@@ -4,13 +4,12 @@ import UIKit
 /// Nhập ID của mình + ID người muốn chat, validate rồi push sang ChatViewController.
 final class ChatLoginViewController: UIViewController {
 
-    private let allowedIds = ["test01", "test02"]
-    private let myIdKey = "chat_my_id"
+    private let viewModel = ChatLoginViewModel()
 
     // MARK: - UI
     private let myIdField: UITextField = {
         let tf = UITextField()
-        tf.placeholder = "ID của bạn"
+        tf.placeholder = L10n.Chat.myIdPlaceholder
         tf.borderStyle = .roundedRect
         tf.autocapitalizationType = .none
         tf.autocorrectionType = .no
@@ -21,7 +20,7 @@ final class ChatLoginViewController: UIViewController {
 
     private let partnerIdField: UITextField = {
         let tf = UITextField()
-        tf.placeholder = "ID người muốn chat"
+        tf.placeholder = L10n.Chat.partnerIdPlaceholder
         tf.borderStyle = .roundedRect
         tf.autocapitalizationType = .none
         tf.autocorrectionType = .no
@@ -32,7 +31,7 @@ final class ChatLoginViewController: UIViewController {
 
     private let startButton: UIButton = {
         let b = UIButton(type: .system)
-        b.setTitle("Bắt đầu chat", for: .normal)
+        b.setTitle(L10n.Chat.startChat, for: .normal)
         b.titleLabel?.font = .systemFont(ofSize: 17, weight: .semibold)
         b.backgroundColor = .systemBlue
         b.setTitleColor(.white, for: .normal)
@@ -58,7 +57,7 @@ final class ChatLoginViewController: UIViewController {
         view.backgroundColor = .systemBackground
 
         // Nhớ ID lần trước
-        myIdField.text = UserDefaults.standard.string(forKey: myIdKey)
+        myIdField.text = viewModel.savedMyId
 
         setupLayout()
 
@@ -84,27 +83,20 @@ final class ChatLoginViewController: UIViewController {
 
     // MARK: - Actions
     @objc private func startTapped() {
-        let myId = (myIdField.text ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-        let partnerId = (partnerIdField.text ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-
-        guard allowedIds.contains(myId), allowedIds.contains(partnerId) else {
-            showAlert("ID không hợp lệ. Chỉ chấp nhận test01 hoặc test02.")
-            return
+        switch viewModel.validate(myId: myIdField.text ?? "", partnerId: partnerIdField.text ?? "") {
+        case .ok(let myId, let partnerId):
+            let chatVC = ChatViewController(myId: myId, partnerId: partnerId)
+            navigationController?.pushViewController(chatVC, animated: true)
+        case .invalid:
+            showAlert(L10n.Chat.invalidId)
+        case .same:
+            showAlert(L10n.Chat.sameId)
         }
-        guard myId != partnerId else {
-            showAlert("2 ID phải khác nhau.")
-            return
-        }
-
-        UserDefaults.standard.set(myId, forKey: myIdKey)
-
-        let chatVC = ChatViewController(myId: myId, partnerId: partnerId)
-        navigationController?.pushViewController(chatVC, animated: true)
     }
 
     private func showAlert(_ message: String) {
-        let alert = UIAlertController(title: "Lỗi", message: message, preferredStyle: .alert)
-        alert.addAction(UIAlertAction(title: "OK", style: .default))
+        let alert = UIAlertController(title: L10n.Common.error, message: message, preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: L10n.Common.ok, style: .default))
         present(alert, animated: true)
     }
 }

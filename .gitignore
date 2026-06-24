@@ -3,3 +3,10 @@
 
 # macOS
 .DS_Store
+
+cat >> .gitignore << 'EOF'
+fastlane/.env
+fastlane/AuthKey_*.p8
+fastlane/report.xml
+build/
+EOF

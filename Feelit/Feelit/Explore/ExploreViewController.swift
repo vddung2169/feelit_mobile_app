@@ -6,10 +6,11 @@ final class ExploreViewController: UIViewController {
 
     private enum Section: Int, CaseIterable { case categories, assets, investors }
 
-    private let categories = ["Tất cả", "Chứng khoán", "Crypto", "Vàng", "Forex", "Hàng hóa"]
-    private var selectedCategory = 0
-    private let assets = FEMock.assets
-    private let investors = FEMock.investors
+    private let viewModel = ExploreViewModel()
+    private var categories: [String] { viewModel.categories }
+    private var selectedCategory: Int { viewModel.selectedCategory }
+    private var assets: [FEAsset] { viewModel.assets }
+    private var investors: [FEInvestor] { viewModel.investors }
 
     // Search bar
     private let searchContainer = UIView()
@@ -184,8 +185,8 @@ extension ExploreViewController: UICollectionViewDataSource, UICollectionViewDel
 
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
         guard Section(rawValue: indexPath.section) == .categories else { return }
-        let previous = selectedCategory
-        selectedCategory = indexPath.item
+        let previous = viewModel.selectedCategory
+        viewModel.selectCategory(indexPath.item)
         collectionView.reloadItems(at: [indexPath, IndexPath(item: previous, section: 0)])
     }
 }

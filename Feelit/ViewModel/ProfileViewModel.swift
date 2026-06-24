@@ -7,6 +7,12 @@ final class ProfileViewModel {
     @Published private(set) var isLoading = false
     @Published private(set) var errorMessage: String?
 
+    // MARK: - Presentation (mock)
+    /// Dữ liệu hiển thị cho `ProfileViewController`. Hiện dùng mock; sẽ thay bằng `user` (API)
+    /// khi nối backend thật. Tách tên riêng để không đụng `user: UserDTO?` ở trên.
+    let profile = FEMock.user
+    let activities = FEMock.activities
+
     func loadProfile() {
         isLoading = true
         AuthAPIClient.shared.getCurrentUser { [weak self] result in

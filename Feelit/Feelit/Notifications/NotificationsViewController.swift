@@ -1,15 +1,17 @@
 import UIKit
+import Combine
 
 // MARK: - NotificationsViewController
-/// Màn hình danh sách thông báo (hàng đợi in-app). Tap item → đọc + mở poll.
+/// Màn hình danh sách thông báo (View). Tải/đánh dấu đọc nằm trong `NotificationsViewModel`.
 final class NotificationsViewController: UIViewController {
 
-    private var items: [AppNotification] = []
+    private let viewModel = NotificationsViewModel()
+    private var cancellables = Set<AnyCancellable>()
+    private var items: [AppNotification] { viewModel.items }
+
     private let tableView = UITableView()
     private let spinner = UIActivityIndicatorView(style: .large)
     private let emptyLabel = UILabel()
-
-    private var userId: String { NotificationCoordinator.shared.currentUserId }
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -20,7 +22,31 @@ final class NotificationsViewController: UIViewController {
         setupTable()
         setupSpinner()
         setupEmpty()
-        load()
+        bindViewModel()
+        viewModel.load()
+    }
+
+    // MARK: - Binding
+    private func bindViewModel() {
+        viewModel.$items
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.tableView.reloadData()
+                self?.updateEmptyState()
+            }
+            .store(in: &cancellables)
+
+        viewModel.$isLoading
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] loading in
+                loading ? self?.spinner.startAnimating() : self?.spinner.stopAnimating()
+                self?.updateEmptyState()
+            }
+            .store(in: &cancellables)
+    }
+
+    private func updateEmptyState() {
+        emptyLabel.isHidden = viewModel.isLoading || !items.isEmpty
     }
 
     private func setupTable() {
@@ -69,39 +95,8 @@ final class NotificationsViewController: UIViewController {
         ])
     }
 
-    private func load() {
-        spinner.startAnimating()
-        APIClient.shared.getNotifications(userId: userId) { [weak self] result in
-            DispatchQueue.main.async {
-                guard let self = self else { return }
-                self.spinner.stopAnimating()
-                switch result {
-                case .success(let res):
-                    self.items = res.notifications
-                    NotificationCoordinator.shared.setUnread(res.unreadCount)
-                    self.tableView.reloadData()
-                    self.emptyLabel.isHidden = !res.notifications.isEmpty
-                case .failure(let error):
-                    print("⚠️ getNotifications failed: \(error)")
-                    self.emptyLabel.isHidden = !self.items.isEmpty
-                }
-            }
-        }
-    }
-
     @objc private func markAllTapped() {
-        APIClient.shared.markAllNotificationsRead(userId: userId) { [weak self] result in
-            DispatchQueue.main.async {
-                guard let self = self, case .success(let res) = result else { return }
-                NotificationCoordinator.shared.setUnread(res.unreadCount)
-                self.items = self.items.map {
-                    AppNotification(id: $0.id, userId: $0.userId, type: $0.type, title: $0.title,
-                                    body: $0.body, data: $0.data, pollId: $0.pollId,
-                                    isRead: true, createdAt: $0.createdAt)
-                }
-                self.tableView.reloadData()
-            }
-        }
+        viewModel.markAllRead()
     }
 }
 
@@ -117,13 +112,7 @@ extension NotificationsViewController: UITableViewDataSource, UITableViewDelegat
 
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         tableView.deselectRow(at: indexPath, animated: true)
-        let item = items[indexPath.row]
-
-        if !item.isRead {
-            APIClient.shared.markNotificationRead(notificationId: item.id) { _ in }
-            NotificationCoordinator.shared.setUnread(max(0, NotificationCoordinator.shared.unreadCount - 1))
-        }
-        if let pollId = item.resolvedPollId {
+        if let pollId = viewModel.didTap(items[indexPath.row]) {
             NotificationCoordinator.shared.openPoll(pollId: pollId)
         }
     }

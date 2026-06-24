@@ -73,11 +73,8 @@ final class OnboardingInterestViewController: UIViewController {
 
     override var preferredStatusBarStyle: UIStatusBarStyle { .darkContent }
 
-    private let topics = [
-        "Chứng khoán VN", "Crypto", "Vàng", "Lãi suất & Fed", "Bất động sản",
-        "Dầu & hàng hóa", "Công nghệ & AI", "Thể thao", "Giải trí",
-        "Vĩ mô thế giới", "Cổ phiếu ngân hàng",
-    ]
+    private let viewModel = OnboardingInterestViewModel()
+    private var topics: [String] { viewModel.topics }
 
     private let titleLabel: UILabel = {
         let l = UILabel()
@@ -159,7 +156,7 @@ final class OnboardingInterestViewController: UIViewController {
     // MARK: Actions
     @objc private func continueTapped() {
         guard !chips.selectedTitles.isEmpty else { return }
-        UserDefaults.standard.set(Array(chips.selectedTitles), forKey: "feelit_interests")
+        viewModel.save(chips.selectedTitles)
         goHome()
     }
 

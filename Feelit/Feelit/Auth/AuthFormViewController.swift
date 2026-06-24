@@ -13,7 +13,7 @@ class AuthFormViewController: UIViewController {
     /// Tiêu đề lớn của bước.
     var formTitle: String { "" }
     /// Nhãn nút chính.
-    var continueButtonTitle: String { "Tiếp tục" }
+    var continueButtonTitle: String { L10n.Auth.continueButton }
     /// Các view phụ hiển thị ngay dưới ô nhập (link / hint...).
     var headAccessoryViews: [UIView] { [] }
     /// View chiếm vị trí "hàng ô nhập" trong nhóm tiêu đề. Mặc định là `fieldContainer`;
@@ -48,7 +48,7 @@ class AuthFormViewController: UIViewController {
         config.image = UIImage(systemName: "chevron.left",
                                withConfiguration: UIImage.SymbolConfiguration(pointSize: 16, weight: .semibold))
         config.imagePadding = 4
-        config.attributedTitle = AttributedString("Trở lại", attributes:
+        config.attributedTitle = AttributedString(L10n.Auth.backButton, attributes:
             AttributeContainer([.font: UIFont.systemFont(ofSize: 17, weight: .regular)]))
         config.baseForegroundColor = AuthTheme.textPrimary
         config.contentInsets = .init(top: 8, leading: 8, bottom: 8, trailing: 8)
@@ -219,7 +219,7 @@ class AuthFormViewController: UIViewController {
 
     // MARK: - Điều khoản
     private func makeTermsText() -> NSAttributedString {
-        let base = "Bằng cách nhấn Tiếp tục, bạn đồng ý với Điều khoản Dịch vụ và Chính sách Bảo mật của chúng tôi."
+        let base = L10n.Auth.termsText
         let s = NSMutableAttributedString(string: base, attributes: [
             .font: UIFont.systemFont(ofSize: 12, weight: .regular),
             .foregroundColor: AuthTheme.textTertiary,

@@ -23,46 +23,135 @@ final class AuthAPIClient {
 
     func register(email: String?, phone: String?, password: String,
                   completion: @escaping (Result<RegisterResponse, Error>) -> Void) {
+        if AuthMockBackend.isEnabled {
+            AuthMockBackend.register(email: email, phone: phone, password: password, completion: completion)
+            return
+        }
         let body = RegisterRequest(email: email, phone: phone, password: password)
         post("/api/auth/register", body: body, completion: completion)
     }
 
     func verifyOTP(userId: String, code: String, channel: String,
                    completion: @escaping (Result<AuthSessionResponse, Error>) -> Void) {
-        let body = VerifyOTPRequest(userId: userId, code: code, channel: channel)
-        post("/api/auth/verify-otp", body: body) { (result: Result<AuthSessionResponse, Error>) in
+        let onResult: (Result<AuthSessionResponse, Error>) -> Void = { result in
             if case .success(let session) = result {
                 TokenStore.shared.saveSession(session)
             }
             completion(result)
         }
+        if AuthMockBackend.isEnabled {
+            AuthMockBackend.verifyOTP(userId: userId, code: code, channel: channel, completion: onResult)
+            return
+        }
+        let body = VerifyOTPRequest(userId: userId, code: code, channel: channel)
+        post("/api/auth/verify-otp", body: body, completion: onResult)
     }
 
     func resendOTP(userId: String, channel: String,
                    completion: @escaping (Result<EmptyResponse, Error>) -> Void) {
+        if AuthMockBackend.isEnabled {
+            AuthMockBackend.resendOTP(userId: userId, channel: channel, completion: completion)
+            return
+        }
         let body = ["userId": userId, "channel": channel]
         post("/api/auth/resend-otp", body: body, completion: completion)
     }
 
     func login(emailOrPhone: String, password: String,
                completion: @escaping (Result<AuthSessionResponse, Error>) -> Void) {
-        let body = LoginRequest(emailOrPhone: emailOrPhone, password: password)
-        post("/api/auth/login", body: body) { (result: Result<AuthSessionResponse, Error>) in
+        let onResult: (Result<AuthSessionResponse, Error>) -> Void = { result in
             if case .success(let session) = result {
                 TokenStore.shared.saveSession(session)
             }
             completion(result)
         }
+        if AuthMockBackend.isEnabled {
+            AuthMockBackend.login(emailOrPhone: emailOrPhone, password: password, completion: onResult)
+            return
+        }
+        let body = LoginRequest(emailOrPhone: emailOrPhone, password: password)
+        post("/api/auth/login", body: body, completion: onResult)
+    }
+
+    // MARK: Đăng ký nhiều bước (Email/SĐT → OTP → Mật khẩu → contact bổ sung → Hoàn tất)
+
+    func sendRegistrationOTP(email: String?, phone: String?,
+                             completion: @escaping (Result<RegisterResponse, Error>) -> Void) {
+        if AuthMockBackend.isEnabled {
+            AuthMockBackend.sendRegistrationOTP(email: email, phone: phone, completion: completion)
+            return
+        }
+        let body = RegisterOTPRequest(email: email, phone: phone)
+        post("/api/auth/register/send-otp", body: body, completion: completion)
+    }
+
+    func verifyRegistrationOTP(userId: String, code: String,
+                               completion: @escaping (Result<EmptyResponse, Error>) -> Void) {
+        if AuthMockBackend.isEnabled {
+            AuthMockBackend.verifyRegistrationOTP(userId: userId, code: code, completion: completion)
+            return
+        }
+        let body = ["userId": userId, "code": code]
+        post("/api/auth/register/verify-otp", body: body, completion: completion)
+    }
+
+    func completeRegistration(userId: String, email: String?, phone: String?, password: String,
+                              completion: @escaping (Result<AuthSessionResponse, Error>) -> Void) {
+        let onResult: (Result<AuthSessionResponse, Error>) -> Void = { result in
+            if case .success(let session) = result { TokenStore.shared.saveSession(session) }
+            completion(result)
+        }
+        if AuthMockBackend.isEnabled {
+            AuthMockBackend.completeRegistration(userId: userId, email: email, phone: phone,
+                                                 password: password, completion: onResult)
+            return
+        }
+        let body = CompleteRegistrationRequest(userId: userId, email: email, phone: phone, password: password)
+        post("/api/auth/register/complete", body: body, completion: onResult)
+    }
+
+    // MARK: Đăng nhập bằng SĐT qua OTP
+
+    func sendLoginOTP(phone: String,
+                      completion: @escaping (Result<ForgotPasswordResponse, Error>) -> Void) {
+        if AuthMockBackend.isEnabled {
+            AuthMockBackend.sendLoginOTP(phone: phone, completion: completion)
+            return
+        }
+        let body = ["phone": phone]
+        post("/api/auth/login/send-otp", body: body, completion: completion)
+    }
+
+    func verifyLoginOTP(userId: String, code: String,
+                        completion: @escaping (Result<AuthSessionResponse, Error>) -> Void) {
+        let onResult: (Result<AuthSessionResponse, Error>) -> Void = { result in
+            if case .success(let session) = result { TokenStore.shared.saveSession(session) }
+            completion(result)
+        }
+        if AuthMockBackend.isEnabled {
+            AuthMockBackend.verifyLoginOTP(userId: userId, code: code, completion: onResult)
+            return
+        }
+        let body = ["userId": userId, "code": code]
+        post("/api/auth/login/verify-otp", body: body, completion: onResult)
     }
 
     func forgotPassword(emailOrPhone: String,
                         completion: @escaping (Result<ForgotPasswordResponse, Error>) -> Void) {
+        if AuthMockBackend.isEnabled {
+            AuthMockBackend.forgotPassword(emailOrPhone: emailOrPhone, completion: completion)
+            return
+        }
         let body = ForgotPasswordRequest(emailOrPhone: emailOrPhone)
         post("/api/auth/forgot-password", body: body, completion: completion)
     }
 
     func resetPassword(userId: String, code: String, newPassword: String,
                        completion: @escaping (Result<EmptyResponse, Error>) -> Void) {
+        if AuthMockBackend.isEnabled {
+            AuthMockBackend.resetPassword(userId: userId, code: code, newPassword: newPassword, completion: completion)
+            return
+        }
         let body = ResetPasswordRequest(userId: userId, code: code, newPassword: newPassword)
         post("/api/auth/reset-password", body: body, completion: completion)
     }
@@ -83,6 +172,10 @@ final class AuthAPIClient {
     // MARK: - Authorized endpoints (cần token, tự refresh khi 401)
 
     func getCurrentUser(completion: @escaping (Result<UserDTO, Error>) -> Void) {
+        if AuthMockBackend.isEnabled {
+            AuthMockBackend.getCurrentUser(completion: completion)
+            return
+        }
         authorizedGet("/api/users/me", completion: completion)
     }
 

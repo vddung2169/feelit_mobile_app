@@ -11,6 +11,8 @@ final class AuthViewModel {
     @Published private(set) var otpChannel: String?         // "email" | "sms"
     @Published private(set) var didCompleteAuth = false     // true → navigate to main app
     @Published private(set) var resendCooldown: Int = 0
+    @Published private(set) var registrationUserId: String?  // userId của bản nháp đăng ký
+    @Published private(set) var registrationOTPVerified = false
 
     private var cancellables = Set<AnyCancellable>()
     private var resendTimer: AnyCancellable?
@@ -37,6 +39,78 @@ final class AuthViewModel {
                     self?.pendingUserId = res.userId
                     self?.otpChannel = email != nil ? "email" : "sms"
                     self?.startResendCooldown(seconds: 60)
+                case .failure(let error):
+                    self?.errorMessage = error.localizedDescription
+                }
+            }
+        }
+    }
+
+    // MARK: - Đăng ký nhiều bước
+    /// Bước 1: gửi OTP tới email/SĐT (tạo bản nháp). Thành công → `registrationUserId`.
+    func sendRegistrationOTP(email: String?, phone: String?) {
+        isLoading = true
+        errorMessage = nil
+        AuthAPIClient.shared.sendRegistrationOTP(email: email, phone: phone) { [weak self] result in
+            DispatchQueue.main.async {
+                self?.isLoading = false
+                switch result {
+                case .success(let res):
+                    self?.registrationUserId = res.userId
+                    self?.otpChannel = email != nil ? "email" : "sms"
+                    self?.startResendCooldown(seconds: 60)
+                case .failure(let error):
+                    self?.errorMessage = error.localizedDescription
+                }
+            }
+        }
+    }
+
+    /// Bước 2: xác minh OTP của bản nháp (không đăng nhập). Thành công → `registrationOTPVerified`.
+    func verifyRegistrationOTP(userId: String, code: String) {
+        isLoading = true
+        errorMessage = nil
+        AuthAPIClient.shared.verifyRegistrationOTP(userId: userId, code: code) { [weak self] result in
+            DispatchQueue.main.async {
+                self?.isLoading = false
+                switch result {
+                case .success:
+                    self?.registrationOTPVerified = true
+                case .failure(let error):
+                    self?.errorMessage = error.localizedDescription
+                }
+            }
+        }
+    }
+
+    /// Gửi lại OTP cho bản nháp đăng ký.
+    func resendRegistrationOTP(email: String?, phone: String?) {
+        guard resendCooldown == 0 else { return }
+        AuthAPIClient.shared.sendRegistrationOTP(email: email, phone: phone) { [weak self] result in
+            DispatchQueue.main.async {
+                switch result {
+                case .success(let res):
+                    self?.registrationUserId = res.userId
+                    self?.startResendCooldown(seconds: 60)
+                case .failure(let error):
+                    self?.errorMessage = error.localizedDescription
+                }
+            }
+        }
+    }
+
+    /// Bước cuối: gắn contact bổ sung + mật khẩu, tạo tài khoản. Thành công → `didCompleteAuth`.
+    func completeRegistration(userId: String, email: String?, phone: String?, password: String) {
+        isLoading = true
+        errorMessage = nil
+        AuthAPIClient.shared.completeRegistration(userId: userId, email: email, phone: phone,
+                                                  password: password) { [weak self] result in
+            DispatchQueue.main.async {
+                self?.isLoading = false
+                switch result {
+                case .success(let session):
+                    self?.currentUser = session.user
+                    self?.didCompleteAuth = true
                 case .failure(let error):
                     self?.errorMessage = error.localizedDescription
                 }
@@ -85,6 +159,44 @@ final class AuthViewModel {
                 if self.resendCooldown > 0 { self.resendCooldown -= 1 }
                 else { self.resendTimer?.cancel() }
             }
+    }
+
+    // MARK: - Đăng nhập bằng SĐT qua OTP
+    /// Gửi OTP đăng nhập tới SĐT. Thành công → `pendingUserId` (để màn OTP dùng).
+    func sendPhoneLoginOTP(phone: String) {
+        isLoading = true
+        errorMessage = nil
+        AuthAPIClient.shared.sendLoginOTP(phone: phone) { [weak self] result in
+            DispatchQueue.main.async {
+                self?.isLoading = false
+                switch result {
+                case .success(let res):
+                    self?.pendingUserId = res.userId
+                    self?.otpChannel = res.channel
+                    self?.startResendCooldown(seconds: 60)
+                case .failure(let error):
+                    self?.errorMessage = error.localizedDescription
+                }
+            }
+        }
+    }
+
+    /// Xác minh OTP đăng nhập → lưu session, `didCompleteAuth`.
+    func verifyPhoneLoginOTP(userId: String, code: String) {
+        isLoading = true
+        errorMessage = nil
+        AuthAPIClient.shared.verifyLoginOTP(userId: userId, code: code) { [weak self] result in
+            DispatchQueue.main.async {
+                self?.isLoading = false
+                switch result {
+                case .success(let session):
+                    self?.currentUser = session.user
+                    self?.didCompleteAuth = true
+                case .failure(let error):
+                    self?.errorMessage = error.localizedDescription
+                }
+            }
+        }
     }
 
     // MARK: - Login

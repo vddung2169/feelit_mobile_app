@@ -35,6 +35,7 @@ FEELIT gồm 2 phần:
 ## Tính năng
 
 ### Polls & Voting
+
 - Tạo poll YES/NO với thời gian tùy chỉnh
 - Vote realtime — cập nhật tức thì trên tất cả thiết bị
 - Biểu đồ theo dõi diễn biến vote (CoreGraphics)
@@ -43,6 +44,7 @@ FEELIT gồm 2 phần:
 - Auto simulate ~1000 votes để test realtime
 
 ### Feed & Social
+
 - Danh sách bài viết nhận định thị trường
 - Flash cards dạng swipe (Tinder-style)
 - Like, comment bài viết realtime
@@ -50,29 +52,34 @@ FEELIT gồm 2 phần:
 - Embedded poll trong bài viết
 
 ### Explore
+
 - Tìm kiếm cổ phiếu, nhà đầu tư
 - Filter theo danh mục (Chứng khoán, Crypto, Vàng...)
 - Trending assets grid
 - Top investors leaderboard
 
 ### Portfolio & Profile
+
 - Theo dõi độ chính xác dự đoán
 - Xếp hạng trong cộng đồng
 - Streak, badges, điểm thưởng
 - Lịch sử dự đoán
 
 ### Auth
+
 - Đăng nhập bằng Email hoặc Số điện thoại
 - Quên mật khẩu, đặt lại mật khẩu
 - Onboarding flow
 
 ### Notifications
+
 - In-app banner realtime (Socket.IO)
 - Push notification (APNs — thiết bị thật)
 - Local notification fallback (Simulator)
 - Badge unread count
 
 ### Widget (iOS Home Screen)
+
 - Flash poll Widget (Small / Medium / Large)
 - Xoay vòng 6 cards mỗi 30 phút
 
@@ -80,32 +87,33 @@ FEELIT gồm 2 phần:
 
 ## Tech Stack
 
-| Layer | Technology |
-|-------|-----------|
-| iOS Language | Swift 5.9 |
-| iOS UI | UIKit (programmatic, không Storyboard) |
-| iOS Realtime | Starscream 4.0.8 (WebSocket) |
-| iOS HTTP | URLSession + Codable |
-| iOS Widget | WidgetKit + SwiftUI |
-| Backend Runtime | Node.js v18+ |
-| Backend Framework | Express.js |
-| Realtime | Socket.IO |
-| Database | SQLite (sql.js — thuần JS) |
-| ID Generation | uuid |
+| Layer             | Technology                             |
+| ----------------- | -------------------------------------- |
+| iOS Language      | Swift 5.9                              |
+| iOS UI            | UIKit (programmatic, không Storyboard) |
+| iOS Realtime      | Starscream 4.0.8 (WebSocket)           |
+| iOS HTTP          | URLSession + Codable                   |
+| iOS Widget        | WidgetKit + SwiftUI                    |
+| Backend Runtime   | Node.js v18+                           |
+| Backend Framework | Express.js                             |
+| Realtime          | Socket.IO                              |
+| Database          | SQLite (sql.js — thuần JS)             |
+| ID Generation     | uuid                                   |
 
 ---
 
 ## Yêu cầu hệ thống
 
-| Tool | Phiên bản |
-|------|-----------|
-| macOS | 13.0+ (Ventura) |
-| Xcode | 15.0+ |
-| Node.js | 18.0+ |
-| npm | 8.0+ |
-| iOS Simulator | iOS 15.0+ |
+| Tool          | Phiên bản       |
+| ------------- | --------------- |
+| macOS         | 13.0+ (Ventura) |
+| Xcode         | 15.0+           |
+| Node.js       | 18.0+           |
+| npm           | 8.0+            |
+| iOS Simulator | iOS 15.0+       |
 
 Kiểm tra:
+
 ```bash
 node --version   # >= 18
 npm --version    # >= 8
@@ -117,11 +125,13 @@ xcodebuild -version  # >= 15
 ## Cài đặt Backend
 
 ### Bước 1 — Vào thư mục
+
 ```bash
 cd realtime-poll-server
 ```
 
 ### Bước 2 — Cài dependencies
+
 ```bash
 npm install
 ```
@@ -129,11 +139,13 @@ npm install
 ### Bước 3 — Chạy server
 
 **Development** (tự restart khi sửa code):
+
 ```bash
 npm run dev
 ```
 
 **Production**:
+
 ```bash
 npm start
 ```
@@ -143,12 +155,14 @@ npm start
 Mở browser: `http://localhost:3001`
 
 Hoặc dùng curl:
+
 ```bash
 curl http://localhost:3001/
 # {"status":"ok","message":"🗳️ Realtime Poll Server is running!"}
 ```
 
 ### Output khi start thành công
+
 ```
 🆕 Created new database.   (lần đầu)
 ✅ Database tables ready.
@@ -166,6 +180,7 @@ curl http://localhost:3001/
 ## Cài đặt iOS App
 
 ### Bước 1 — Mở Xcode
+
 ```bash
 open Feelit.xcodeproj
 ```
@@ -173,15 +188,18 @@ open Feelit.xcodeproj
 ### Bước 2 — Thêm Starscream (nếu chưa có)
 
 `File → Add Package Dependencies`
+
 ```
 https://github.com/daltoniam/Starscream
 ```
+
 Version: **Up to Next Major 4.0.6**  
 Target: **Feelit** (không phải Tests)
 
 ### Bước 3 — Kiểm tra Info.plist
 
 Đảm bảo có `NSAppTransportSecurity` để cho phép HTTP local:
+
 ```xml
 <key>NSAppTransportSecurity</key>
 <dict>
@@ -203,9 +221,11 @@ Nhấn **⌘ + R**
 Cần 2 simulator để test realtime vote và comment.
 
 ### Bước 1 — Build lên simulator đầu tiên
+
 Chọn destination **iPhone 15 Pro Max** → **⌘ + R**
 
 ### Bước 2 — Boot simulator thứ hai
+
 ```bash
 # Xem danh sách simulators có sẵn
 xcrun simctl list devices | grep -E "iPhone 15|iPhone 16"
@@ -218,6 +238,7 @@ open -a Simulator
 ```
 
 ### Bước 3 — Cài app lên simulator thứ hai
+
 ```bash
 # Lấy đường dẫn app vừa build
 APP=$(find ~/Library/Developer/Xcode/DerivedData \
@@ -234,6 +255,7 @@ xcrun simctl launch "iPhone 15" $(defaults read "$APP/Info.plist" CFBundleIdenti
 ```
 
 ### Bước 4 — Tạo poll để test
+
 ```bash
 curl -X POST http://localhost:3001/api/polls \
   -H "Content-Type: application/json" \
@@ -245,6 +267,7 @@ curl -X POST http://localhost:3001/api/polls \
 ## Cấu trúc Project
 
 ### Backend
+
 ```
 realtime-poll-server/
 ├── src/
@@ -260,6 +283,7 @@ realtime-poll-server/
 ```
 
 ### iOS App
+
 ```
 Feelit/
 ├── AppDelegate.swift                 # Setup UNUserNotificationCenter
@@ -335,45 +359,46 @@ Feelit/
 
 ### Polls
 
-| Method | Route | Body | Mô tả |
-|--------|-------|------|-------|
-| `GET` | `/` | — | Health check |
-| `POST` | `/api/polls` | `{title, durationSeconds}` | Tạo poll mới |
-| `GET` | `/api/polls` | — | Danh sách polls (20 gần nhất) |
-| `GET` | `/api/polls/active` | — | Poll đang active |
-| `GET` | `/api/polls/:id` | — | Poll theo ID |
-| `POST` | `/api/polls/:id/votes` | `{voterId, choice}` | Gửi vote YES/NO |
-| `GET` | `/api/polls/:id/chart` | — | Dữ liệu biểu đồ |
-| `POST` | `/api/polls/:id/simulate` | — | Bật auto vote (~1000 votes) |
+| Method | Route                     | Body                       | Mô tả                         |
+| ------ | ------------------------- | -------------------------- | ----------------------------- |
+| `GET`  | `/`                       | —                          | Health check                  |
+| `POST` | `/api/polls`              | `{title, durationSeconds}` | Tạo poll mới                  |
+| `GET`  | `/api/polls`              | —                          | Danh sách polls (20 gần nhất) |
+| `GET`  | `/api/polls/active`       | —                          | Poll đang active              |
+| `GET`  | `/api/polls/:id`          | —                          | Poll theo ID                  |
+| `POST` | `/api/polls/:id/votes`    | `{voterId, choice}`        | Gửi vote YES/NO               |
+| `GET`  | `/api/polls/:id/chart`    | —                          | Dữ liệu biểu đồ               |
+| `POST` | `/api/polls/:id/simulate` | —                          | Bật auto vote (~1000 votes)   |
 
 ### Posts & Comments
 
-| Method | Route | Body | Mô tả |
-|--------|-------|------|-------|
-| `GET` | `/api/posts` | — | Danh sách posts |
-| `POST` | `/api/posts` | `{userId, username, badge, content, tags, pollId?}` | Tạo post |
-| `GET` | `/api/posts/:id` | — | Post theo ID |
-| `GET` | `/api/posts/:id/comments` | — | Comments của post |
-| `POST` | `/api/posts/:id/comments` | `{userId, username, content}` | Gửi comment |
-| `POST` | `/api/posts/:id/like` | `{userId}` | Like post |
+| Method | Route                     | Body                                                | Mô tả             |
+| ------ | ------------------------- | --------------------------------------------------- | ----------------- |
+| `GET`  | `/api/posts`              | —                                                   | Danh sách posts   |
+| `POST` | `/api/posts`              | `{userId, username, badge, content, tags, pollId?}` | Tạo post          |
+| `GET`  | `/api/posts/:id`          | —                                                   | Post theo ID      |
+| `GET`  | `/api/posts/:id/comments` | —                                                   | Comments của post |
+| `POST` | `/api/posts/:id/comments` | `{userId, username, content}`                       | Gửi comment       |
+| `POST` | `/api/posts/:id/like`     | `{userId}`                                          | Like post         |
 
 ### Chat
 
-| Method | Route | Body | Mô tả |
-|--------|-------|------|-------|
-| `GET` | `/api/messages/:userId1/:userId2` | — | Lịch sử chat giữa 2 user |
-| `POST` | `/api/messages` | `{senderId, receiverId, content}` | Gửi tin nhắn |
+| Method | Route                             | Body                              | Mô tả                    |
+| ------ | --------------------------------- | --------------------------------- | ------------------------ |
+| `GET`  | `/api/messages/:userId1/:userId2` | —                                 | Lịch sử chat giữa 2 user |
+| `POST` | `/api/messages`                   | `{senderId, receiverId, content}` | Gửi tin nhắn             |
 
 ### Notifications
 
-| Method | Route | Body | Mô tả |
-|--------|-------|------|-------|
-| `GET` | `/api/notifications/:userId` | — | Danh sách thông báo |
-| `POST` | `/api/notifications/:id/read` | — | Đánh dấu đã đọc |
-| `POST` | `/api/notifications/:userId/read-all` | — | Đánh dấu tất cả đã đọc |
-| `POST` | `/api/devices` | `{userId, token, platform}` | Đăng ký device token (APNs) |
+| Method | Route                                 | Body                        | Mô tả                       |
+| ------ | ------------------------------------- | --------------------------- | --------------------------- |
+| `GET`  | `/api/notifications/:userId`          | —                           | Danh sách thông báo         |
+| `POST` | `/api/notifications/:id/read`         | —                           | Đánh dấu đã đọc             |
+| `POST` | `/api/notifications/:userId/read-all` | —                           | Đánh dấu tất cả đã đọc      |
+| `POST` | `/api/devices`                        | `{userId, token, platform}` | Đăng ký device token (APNs) |
 
 ### Error Response Format
+
 ```json
 {
   "error": "DUPLICATE_VOTE",
@@ -381,15 +406,15 @@ Feelit/
 }
 ```
 
-| Error Code | HTTP | Ý nghĩa |
-|------------|------|---------|
-| `POLL_NOT_FOUND` | 404 | Poll không tồn tại |
-| `NO_ACTIVE_POLL` | 404 | Không có poll active |
-| `POLL_NOT_ACTIVE` | 400 | Poll đã kết thúc |
-| `POLL_EXPIRED` | 400 | Poll hết giờ |
-| `INVALID_CHOICE` | 400 | Choice không hợp lệ |
-| `DUPLICATE_VOTE` | 409 | Đã vote rồi |
-| `MISSING_FIELDS` | 400 | Thiếu field bắt buộc |
+| Error Code        | HTTP | Ý nghĩa              |
+| ----------------- | ---- | -------------------- |
+| `POLL_NOT_FOUND`  | 404  | Poll không tồn tại   |
+| `NO_ACTIVE_POLL`  | 404  | Không có poll active |
+| `POLL_NOT_ACTIVE` | 400  | Poll đã kết thúc     |
+| `POLL_EXPIRED`    | 400  | Poll hết giờ         |
+| `INVALID_CHOICE`  | 400  | Choice không hợp lệ  |
+| `DUPLICATE_VOTE`  | 409  | Đã vote rồi          |
+| `MISSING_FIELDS`  | 400  | Thiếu field bắt buộc |
 
 ---
 
@@ -397,39 +422,41 @@ Feelit/
 
 ### Client → Server
 
-| Event | Payload | Mô tả |
-|-------|---------|-------|
-| `join_poll` | `{pollId}` | Vào room poll |
-| `leave_poll` | `{pollId}` | Rời room poll |
-| `join_feed` | — | Vào room feed (nhận post/like mới) |
-| `leave_feed` | — | Rời room feed |
-| `join_post` | `{postId}` | Vào room post (nhận comment mới) |
-| `leave_post` | `{postId}` | Rời room post |
-| `join_chat` | `{userId}` | Vào room cá nhân (nhận notification) |
+| Event        | Payload    | Mô tả                                |
+| ------------ | ---------- | ------------------------------------ |
+| `join_poll`  | `{pollId}` | Vào room poll                        |
+| `leave_poll` | `{pollId}` | Rời room poll                        |
+| `join_feed`  | —          | Vào room feed (nhận post/like mới)   |
+| `leave_feed` | —          | Rời room feed                        |
+| `join_post`  | `{postId}` | Vào room post (nhận comment mới)     |
+| `leave_post` | `{postId}` | Rời room post                        |
+| `join_chat`  | `{userId}` | Vào room cá nhân (nhận notification) |
 
 ### Server → Client
 
-| Event | Payload | Mô tả |
-|-------|---------|-------|
-| `poll_state` | Poll object | Trạng thái poll khi mới join |
-| `vote_update` | `{pollId, yesCount, noCount, totalVotes, yesPercentage, noPercentage}` | Vote realtime |
-| `poll_finished` | `{pollId, winner, yesCount, noCount, ...}` | Poll kết thúc |
-| `new_post` | Post object | Bài viết mới trên feed |
-| `new_comment` | `{comment, commentCount}` | Comment mới |
-| `post_liked` | `{postId, likes}` | Lượt like cập nhật |
-| `new_message` | Message object | Tin nhắn mới (chat) |
-| `notification` | AppNotification object | Thông báo in-app |
+| Event           | Payload                                                                | Mô tả                        |
+| --------------- | ---------------------------------------------------------------------- | ---------------------------- |
+| `poll_state`    | Poll object                                                            | Trạng thái poll khi mới join |
+| `vote_update`   | `{pollId, yesCount, noCount, totalVotes, yesPercentage, noPercentage}` | Vote realtime                |
+| `poll_finished` | `{pollId, winner, yesCount, noCount, ...}`                             | Poll kết thúc                |
+| `new_post`      | Post object                                                            | Bài viết mới trên feed       |
+| `new_comment`   | `{comment, commentCount}`                                              | Comment mới                  |
+| `post_liked`    | `{postId, likes}`                                                      | Lượt like cập nhật           |
+| `new_message`   | Message object                                                         | Tin nhắn mới (chat)          |
+| `notification`  | AppNotification object                                                 | Thông báo in-app             |
 
 ---
 
 ## Cấu hình & Biến môi trường
 
 ### Backend
+
 ```bash
 PORT=3001   # mặc định, đổi nếu cần
 ```
 
 Chạy với port khác:
+
 ```bash
 PORT=3002 npm run dev
 ```
@@ -454,13 +481,14 @@ private let serverURL = "ws://localhost:3001/socket.io/?EIO=4&transport=websocke
 
 ### URL theo platform
 
-| Platform | URL |
-|----------|-----|
-| iOS Simulator | `http://localhost:3001` ✅ |
-| Android Emulator | `http://10.0.2.2:3001` |
-| iPhone thật | `http://<MAC_LAN_IP>:3001` |
+| Platform         | URL                        |
+| ---------------- | -------------------------- |
+| iOS Simulator    | `http://localhost:3001` ✅ |
+| Android Emulator | `http://10.0.2.2:3001`     |
+| iPhone thật      | `http://<MAC_LAN_IP>:3001` |
 
 Tìm IP LAN của Mac:
+
 ```bash
 ifconfig | grep "inet " | grep -v 127.0.0.1
 # inet 192.168.1.x ...
@@ -470,18 +498,18 @@ ifconfig | grep "inet " | grep -v 127.0.0.1
 
 ## Lỗi thường gặp
 
-| Lỗi | Nguyên nhân | Cách fix |
-|-----|-------------|---------|
-| `Cannot GET /api/polls` | Route không tồn tại | Dùng `/api/polls/active` để lấy poll đang chạy |
-| `polls.db` không có trong zip | Đúng — file tự tạo | Chạy `npm start` lần đầu, DB tự tạo trong `data/` |
-| `No such module 'Starscream'` | Chưa link vào Target | General → Frameworks → `+` → thêm Starscream |
-| `Could not find storyboard 'Main'` | Info.plist còn reference | Xóa `UISceneStoryboardFile` + `UIMainStoryboardFile` trong Info.plist |
-| `HTTP 404` khi Join Active Poll | Chưa tạo poll | Chạy `curl -X POST .../api/polls` trước |
-| App bị đơ khi vào poll đã ended | SocketManager singleton conflict | Dùng per-instance SocketManager, guard `poll.isActive` trước khi connect |
-| `The data couldn't be read because it is missing` | JSON decode fail | Kiểm tra server trả snake_case, decoder không dùng `.convertFromSnakeCase` khi đã có CodingKeys thủ công |
-| `connection refused` từ iPhone thật | Dùng `localhost` trên device thật | Đổi sang IP LAN của Mac |
-| Notification không nhận trên Simulator | APNs không hoạt động trên Simulator | Dùng local notification fallback (`schedulePollFinished`) |
-| Widget không hiện trong Xcode 15+ | Target chưa được thêm | Build scheme phải include PollWidget target |
+| Lỗi                                               | Nguyên nhân                         | Cách fix                                                                                                 |
+| ------------------------------------------------- | ----------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `Cannot GET /api/polls`                           | Route không tồn tại                 | Dùng `/api/polls/active` để lấy poll đang chạy                                                           |
+| `polls.db` không có trong zip                     | Đúng — file tự tạo                  | Chạy `npm start` lần đầu, DB tự tạo trong `data/`                                                        |
+| `No such module 'Starscream'`                     | Chưa link vào Target                | General → Frameworks → `+` → thêm Starscream                                                             |
+| `Could not find storyboard 'Main'`                | Info.plist còn reference            | Xóa `UISceneStoryboardFile` + `UIMainStoryboardFile` trong Info.plist                                    |
+| `HTTP 404` khi Join Active Poll                   | Chưa tạo poll                       | Chạy `curl -X POST .../api/polls` trước                                                                  |
+| App bị đơ khi vào poll đã ended                   | SocketManager singleton conflict    | Dùng per-instance SocketManager, guard `poll.isActive` trước khi connect                                 |
+| `The data couldn't be read because it is missing` | JSON decode fail                    | Kiểm tra server trả snake_case, decoder không dùng `.convertFromSnakeCase` khi đã có CodingKeys thủ công |
+| `connection refused` từ iPhone thật               | Dùng `localhost` trên device thật   | Đổi sang IP LAN của Mac                                                                                  |
+| Notification không nhận trên Simulator            | APNs không hoạt động trên Simulator | Dùng local notification fallback (`schedulePollFinished`)                                                |
+| Widget không hiện trong Xcode 15+                 | Target chưa được thêm               | Build scheme phải include PollWidget target                                                              |
 
 ---
 
@@ -528,6 +556,7 @@ messages     (id, sender_id, receiver_id, content, created_at)
 ```
 
 ### Vote flow (end-to-end)
+
 ```
 User tap YES
   → PollViewController.voteTapped()
@@ -542,11 +571,11 @@ User tap YES
 
 ### SocketManager Architecture
 
-| Class | Scope | Dùng cho |
-|-------|-------|---------|
-| `SocketManager` | Per-instance | Poll realtime (vote, finish) |
-| `CommentSocketManager` | Per-instance | Comment + like realtime |
-| `NotificationSocketManager` | Singleton | In-app notifications cấp app |
+| Class                       | Scope        | Dùng cho                     |
+| --------------------------- | ------------ | ---------------------------- |
+| `SocketManager`             | Per-instance | Poll realtime (vote, finish) |
+| `CommentSocketManager`      | Per-instance | Comment + like realtime      |
+| `NotificationSocketManager` | Singleton    | In-app notifications cấp app |
 
 ---
 

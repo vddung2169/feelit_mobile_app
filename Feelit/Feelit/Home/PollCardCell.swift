@@ -2,6 +2,9 @@ import UIKit
 
 protocol PollCardCellDelegate: AnyObject {
     func pollCardDidSelect(_ item: PollCardItem)
+    func pollCardDidTapComment(_ item: PollCardItem)
+    func pollCardDidTapShare(_ item: PollCardItem, from cell: PollCardCell)
+    func pollCardDidToggleSave(_ item: PollCardItem, saved: Bool)
 }
 
 // MARK: - PollCardCell
@@ -12,6 +15,7 @@ final class PollCardCell: UICollectionViewCell {
     static let reuseId = "PollCardCell"
     weak var delegate: PollCardCellDelegate?
     private var item: PollCardItem?
+    private var isSaved = false
 
     private let card = GradientView(colors: [])
     private let scrim = GradientView(
@@ -56,6 +60,7 @@ final class PollCardCell: UICollectionViewCell {
     private let commentItem = ActionRailItem(icon: "bubble.right.fill")
     private let saveItem = ActionRailItem(icon: "bookmark.fill")
     private let shareItem = ActionRailItem(icon: "arrowshape.turn.up.right.fill", caption: "Share")
+    private let rail = UIStackView()
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -83,9 +88,12 @@ final class PollCardCell: UICollectionViewCell {
         bottom.setCustomSpacing(8, after: buttons)
         bottom.translatesAutoresizingMaskIntoConstraints = false
 
-        let rail = UIStackView(arrangedSubviews: [commentItem, saveItem, shareItem])
+        [commentItem, saveItem, shareItem].forEach { rail.addArrangedSubview($0) }
         rail.axis = .vertical; rail.spacing = 18; rail.alignment = .center
         rail.translatesAutoresizingMaskIntoConstraints = false
+        commentItem.onTap = { [weak self] in self?.commentTapped() }
+        saveItem.onTap = { [weak self] in self?.saveTapped() }
+        shareItem.onTap = { [weak self] in self?.shareTapped() }
 
         card.addSubview(badge)
         card.addSubview(rail)
@@ -118,13 +126,15 @@ final class PollCardCell: UICollectionViewCell {
         ])
 
         let tap = UITapGestureRecognizer(target: self, action: #selector(tapped))
+        tap.delegate = self
         card.addGestureRecognizer(tap)
         upButton.addTarget(self, action: #selector(tapped), for: .touchUpInside)
         downButton.addTarget(self, action: #selector(tapped), for: .touchUpInside)
     }
 
-    func configure(with item: PollCardItem) {
+    func configure(with item: PollCardItem, isSaved: Bool) {
         self.item = item
+        self.isSaved = isSaved
         card.setColors(item.gradientColors)
         badge.isHidden = !item.trending
         assetBadge.text = item.assetEmoji
@@ -134,11 +144,33 @@ final class PollCardCell: UICollectionViewCell {
         votersLabel.text = item.votersText
         commentItem.setCount(item.commentCount)
         saveItem.setCount(item.saveCount)
+        applySaveStyle()
+    }
+
+    private func applySaveStyle() {
+        saveItem.setIconColor(isSaved ? UIColor(hex: 0xFFC107) : .white)
     }
 
     @objc private func tapped() {
         guard let item = item else { return }
         delegate?.pollCardDidSelect(item)
+    }
+
+    private func commentTapped() {
+        guard let item = item else { return }
+        delegate?.pollCardDidTapComment(item)
+    }
+
+    private func saveTapped() {
+        guard let item = item else { return }
+        isSaved.toggle()
+        applySaveStyle()
+        delegate?.pollCardDidToggleSave(item, saved: isSaved)
+    }
+
+    private func shareTapped() {
+        guard let item = item else { return }
+        delegate?.pollCardDidTapShare(item, from: self)
     }
 
     // MARK: Factories
@@ -162,10 +194,23 @@ final class PollCardCell: UICollectionViewCell {
     }
 }
 
+// MARK: - UIGestureRecognizerDelegate
+extension PollCardCell: UIGestureRecognizerDelegate {
+    /// Bỏ qua chạm rơi vào rail hành động — để các nút rail tự xử lý, không mở chi tiết.
+    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer,
+                           shouldReceive touch: UITouch) -> Bool {
+        if let v = touch.view, v.isDescendant(of: rail) { return false }
+        return true
+    }
+}
+
 // MARK: - ActionRailItem
 final class ActionRailItem: UIView {
     private let iconView = UIImageView()
     private let label = UILabel()
+
+    /// Gọi khi người dùng chạm vào mục này.
+    var onTap: (() -> Void)?
 
     init(icon: String, caption: String? = nil) {
         super.init(frame: .zero)
@@ -192,10 +237,20 @@ final class ActionRailItem: UIView {
             label.trailingAnchor.constraint(equalTo: trailingAnchor),
             label.bottomAnchor.constraint(equalTo: bottomAnchor),
         ])
+        isUserInteractionEnabled = true
+        addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(handleTap)))
     }
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
+    @objc private func handleTap() {
+        onTap?()
+        // Phản hồi chạm nhẹ.
+        alpha = 0.5
+        UIView.animate(withDuration: 0.2) { self.alpha = 1 }
+    }
+
     func setCount(_ count: Int) { label.text = "\(count)" }
+    func setIconColor(_ color: UIColor) { iconView.tintColor = color }
 }
 
 // MARK: - PaddingLabel

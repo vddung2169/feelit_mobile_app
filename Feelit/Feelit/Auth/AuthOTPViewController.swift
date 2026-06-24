@@ -118,6 +118,8 @@ final class AuthOTPViewController: UIViewController {
 
     private let contact: String      // email hoặc SĐT (đã định dạng để hiển thị)
     private let channel: String      // "email" | "sms"
+    private let registrationContext: RegistrationContext?  // != nil → xác minh cho đăng ký
+    private let phoneLoginUserId: String?                  // != nil → xác minh cho đăng nhập SĐT
     private let resendSeconds = 60
 
     private let viewModel: AuthViewModel
@@ -127,7 +129,27 @@ final class AuthOTPViewController: UIViewController {
     init(userId: String, contact: String, channel: String) {
         self.contact = contact
         self.channel = channel
+        self.registrationContext = nil
+        self.phoneLoginUserId = nil
         self.viewModel = AuthViewModel(pendingUserId: userId, otpChannel: channel)
+        super.init(nibName: nil, bundle: nil)
+    }
+    /// Xác minh OTP cho flow đăng ký nhiều bước — verify xong sang màn nhập mật khẩu.
+    init(registration context: RegistrationContext) {
+        self.contact = context.email ?? context.phoneDisplay ?? ""
+        self.channel = context.primaryChannel
+        self.registrationContext = context
+        self.phoneLoginUserId = nil
+        self.viewModel = AuthViewModel()
+        super.init(nibName: nil, bundle: nil)
+    }
+    /// Xác minh OTP cho đăng nhập bằng SĐT — verify xong là đăng nhập luôn.
+    init(phoneLoginUserId userId: String, displayPhone: String) {
+        self.contact = displayPhone
+        self.channel = "sms"
+        self.registrationContext = nil
+        self.phoneLoginUserId = userId
+        self.viewModel = AuthViewModel(pendingUserId: userId, otpChannel: "sms")
         super.init(nibName: nil, bundle: nil)
     }
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
@@ -249,8 +271,25 @@ final class AuthOTPViewController: UIViewController {
             .sink { [weak self] _ in
                 guard let self else { return }
                 self.view.endEditing(true)
+                // Đăng nhập bằng SĐT → vào thẳng app; flow cũ → onboarding.
+                let isLogin = self.phoneLoginUserId != nil
                 self.navigationController?.pushViewController(
-                    AuthSuccessViewController(email: self.contact), animated: true)
+                    AuthSuccessViewController(email: self.contact,
+                                              title: "Đăng nhập thành công!",
+                                              destination: isLogin ? .mainApp : .onboarding),
+                    animated: true)
+            }
+            .store(in: &cancellables)
+
+        // Flow đăng ký: xác minh OTP xong → sang màn nhập mật khẩu (chưa đăng nhập).
+        viewModel.$registrationOTPVerified
+            .receive(on: DispatchQueue.main)
+            .filter { $0 }
+            .sink { [weak self] _ in
+                guard let self, let ctx = self.registrationContext else { return }
+                self.view.endEditing(true)
+                self.navigationController?.pushViewController(
+                    AuthPasswordViewController(registration: ctx), animated: true)
             }
             .store(in: &cancellables)
     }
@@ -325,7 +364,13 @@ final class AuthOTPViewController: UIViewController {
     // MARK: Verify
     private func verify(_ code: String) {
         view.endEditing(true)
-        viewModel.verifyOTP(code: code)
+        if let ctx = registrationContext {
+            viewModel.verifyRegistrationOTP(userId: ctx.userId, code: code)
+        } else if let uid = phoneLoginUserId {
+            viewModel.verifyPhoneLoginOTP(userId: uid, code: code)
+        } else {
+            viewModel.verifyOTP(code: code)
+        }
     }
 
     private func shake(_ v: UIView) {
@@ -373,7 +418,11 @@ final class AuthOTPViewController: UIViewController {
         errorLabel.isHidden = true
         startCountdown()
         otpView.becomeFirstResponder()
-        viewModel.resendOTP()   // gọi /api/auth/resend-otp
+        if let ctx = registrationContext {
+            viewModel.resendRegistrationOTP(email: ctx.email, phone: ctx.phone)
+        } else {
+            viewModel.resendOTP()   // gọi /api/auth/resend-otp
+        }
     }
 
     @objc private func backTapped() {

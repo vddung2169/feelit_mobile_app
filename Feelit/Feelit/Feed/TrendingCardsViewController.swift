@@ -5,9 +5,8 @@ import UIKit
 /// vuốt lên/xuống để chuyển thẻ (vertical paging).
 final class TrendingCardsViewController: UIViewController {
 
-    private let cards = FEMock.flashCards
-    /// Lựa chọn vote theo index card (true = YES). Giữ trạng thái khi cuộn qua lại.
-    private var votes: [Int: Bool] = [:]
+    private let viewModel = TrendingCardsViewModel()
+    private var cards: [FlashCard] { viewModel.cards }
 
     private let topBar = UIView()
     private let closeButton = UIButton(type: .system)
@@ -118,9 +117,9 @@ extension TrendingCardsViewController: UICollectionViewDataSource {
     func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
         let cell = collectionView.dequeueReusableCell(withReuseIdentifier: FlashCardCell.reuseId, for: indexPath) as! FlashCardCell
         let index = indexPath.item
-        cell.configure(with: cards[index], voted: votes[index])
+        cell.configure(with: cards[index], voted: viewModel.vote(for: index))
         cell.onVote = { [weak self] choseYes in
-            self?.votes[index] = choseYes
+            self?.viewModel.vote(card: index, choseYes: choseYes)
         }
         return cell
     }

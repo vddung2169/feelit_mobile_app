@@ -5,7 +5,8 @@ import SwiftUI
 /// Tab 3 — Portfolio: header accuracy + performance chart + recent predictions + rewards.
 final class PortfolioViewController: UIViewController {
 
-    private let user = FEMock.user
+    private let viewModel = PortfolioViewModel()
+    private var user: FEUser { viewModel.user }
     private let scrollView = UIScrollView()
     private let stack = UIStackView()
 
@@ -76,7 +77,7 @@ final class PortfolioViewController: UIViewController {
         card.applyCardStyle()
         let title = label("📈 Hiệu suất 7 ngày", FeelitFonts.title, FeelitColors.textPrimary)
 
-        let values: [Double] = [0.45, 0.52, 0.48, 0.61, 0.58, 0.7, 0.73]
+        let values = viewModel.performanceValues
         let host = UIHostingController(rootView: PerformanceChart(values: values))
         host.view.backgroundColor = .clear
         host.view.translatesAutoresizingMaskIntoConstraints = false
@@ -98,7 +99,7 @@ final class PortfolioViewController: UIViewController {
         let col = UIStackView()
         col.axis = .vertical
         col.spacing = Spacing.md
-        for p in FEMock.predictions { col.addArrangedSubview(predictionRow(p)) }
+        for p in viewModel.predictions { col.addArrangedSubview(predictionRow(p)) }
         embed(col, in: card, padding: Spacing.lg)
         return card
     }

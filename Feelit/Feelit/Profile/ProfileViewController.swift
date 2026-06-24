@@ -4,7 +4,8 @@ import UIKit
 /// Tab 4 — Profile: header (avatar/bio/stats/edit) + badges (horizontal) + activity feed.
 final class ProfileViewController: UIViewController {
 
-    private let user = FEMock.user
+    private let viewModel = ProfileViewModel()
+    private var user: FEUser { viewModel.profile }
     private let scrollView = UIScrollView()
     private let stack = UIStackView()
 
@@ -156,7 +157,7 @@ final class ProfileViewController: UIViewController {
         let col = UIStackView()
         col.axis = .vertical
         col.spacing = Spacing.md
-        for a in FEMock.activities { col.addArrangedSubview(activityRow(a)) }
+        for a in viewModel.activities { col.addArrangedSubview(activityRow(a)) }
         embed(col, in: card, padding: Spacing.lg)
         return card
     }

@@ -1,29 +1,22 @@
 import UIKit
+import Combine
 
 // MARK: - ChatViewController
-/// Màn hình chat 1-1: load lịch sử qua REST, nhận realtime qua ChatSocketManager.
+/// Màn hình chat 1-1 (View). Mọi state/network/typing nằm trong `ChatViewModel`;
+/// VC chỉ dựng UI, bind dữ liệu, xử lý bàn phím và điều hướng.
 final class ChatViewController: UIViewController {
 
-    private let myId: String
     private let partnerId: String
+    private let viewModel: ChatViewModel
+    private var cancellables = Set<AnyCancellable>()
 
-    private var messages: [Message] = []
+    /// Proxy đọc cho table (nguồn: ViewModel).
+    private var messages: [Message] { viewModel.messages }
+    /// Trạng thái footer typing của View (tách khỏi VM để quản lý tableFooterView).
+    private var showingTypingIndicator = false
 
-    // Mỗi VC tạo instance riêng — không singleton
-    private let socketManager = ChatSocketManager()
-
-    // MARK: - Typing state
+    // MARK: - Typing UI
     private let typingIndicator = TypingIndicatorView()
-    /// Đã gửi "typing=true" lên server chưa (tránh spam mỗi keystroke).
-    private var didSendTypingStart = false
-    /// Hết hạn sau khi ngừng gõ → gửi "typing=false".
-    private var typingIdleTimer: Timer?
-    /// Tự ẩn indicator nếu mất event "typing=false" từ đối phương.
-    private var partnerTypingTimeout: Timer?
-    private var isPartnerTyping = false
-
-    private let typingIdleInterval: TimeInterval = 2.0      // giống Messenger
-    private let partnerTypingTTL: TimeInterval = 5.0        // an toàn nếu mất event stop
 
     // MARK: - UI
     private let tableView: UITableView = {
@@ -45,7 +38,7 @@ final class ChatViewController: UIViewController {
 
     private let messageField: UITextField = {
         let tf = UITextField()
-        tf.placeholder = "Nhập tin nhắn..."
+        tf.placeholder = L10n.Chat.messagePlaceholder
         tf.borderStyle = .roundedRect
         tf.translatesAutoresizingMaskIntoConstraints = false
         return tf
@@ -53,7 +46,7 @@ final class ChatViewController: UIViewController {
 
     private let sendButton: UIButton = {
         let b = UIButton(type: .system)
-        b.setTitle("Gửi", for: .normal)
+        b.setTitle(L10n.Common.send, for: .normal)
         b.titleLabel?.font = .systemFont(ofSize: 16, weight: .semibold)
         b.translatesAutoresizingMaskIntoConstraints = false
         return b
@@ -63,8 +56,8 @@ final class ChatViewController: UIViewController {
 
     // MARK: - Init
     init(myId: String, partnerId: String) {
-        self.myId = myId
         self.partnerId = partnerId
+        self.viewModel = ChatViewModel(myId: myId, partnerId: partnerId)
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -75,11 +68,8 @@ final class ChatViewController: UIViewController {
     // MARK: - Lifecycle
     override func viewDidLoad() {
         super.viewDidLoad()
-        title = "Chat với \(partnerId)"
+        title = L10n.Chat.chatWithTitle(partnerId)
         view.backgroundColor = .systemBackground
-
-        // Để bubble so sánh đúng "của mình"
-        Message.currentUserId = myId
 
         setupLayout()
         setupTableView()
@@ -89,24 +79,42 @@ final class ChatViewController: UIViewController {
         updateSendButtonState()
 
         registerKeyboardNotifications()
-
-        socketManager.delegate = self
-        socketManager.connect(userId: myId)
-
-        loadHistory()
+        bindViewModel()
+        viewModel.start()
     }
 
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
         // Rời màn hình → báo ngừng gõ cho đối phương.
-        stopTypingIfNeeded()
+        viewModel.stopTypingIfNeeded()
     }
 
     deinit {
-        typingIdleTimer?.invalidate()
-        partnerTypingTimeout?.invalidate()
-        socketManager.disconnect()
         NotificationCenter.default.removeObserver(self)
+    }
+
+    // MARK: - Binding
+    private func bindViewModel() {
+        viewModel.$messages
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                guard let self = self else { return }
+                self.tableView.reloadData()
+                self.scrollToBottom(animated: true)
+            }
+            .store(in: &cancellables)
+
+        viewModel.$isPartnerTyping
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] typing in
+                typing ? self?.showTypingIndicator() : self?.hideTypingIndicator()
+            }
+            .store(in: &cancellables)
+
+        viewModel.sendDidFail
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] in self?.showSendError() }
+            .store(in: &cancellables)
     }
 
     // MARK: - Layout
@@ -147,59 +155,10 @@ final class ChatViewController: UIViewController {
         tableView.estimatedRowHeight = 60
     }
 
-    // MARK: - Data
-    private func loadHistory() {
-        APIClient.shared.getMessages(userId1: myId, userId2: partnerId) { [weak self] result in
-            DispatchQueue.main.async {
-                guard let self = self else { return }
-                switch result {
-                case .success(let history):
-                    self.messages = history
-                    self.tableView.reloadData()
-                    self.scrollToBottom(animated: false)
-                case .failure(let error):
-                    print("⚠️ getMessages failed: \(error)")
-                }
-            }
-        }
-    }
-
     // MARK: - Actions
     @objc private func textChanged() {
         updateSendButtonState()
-        handleTypingActivity()
-    }
-
-    // MARK: - Outgoing typing
-    /// Gọi mỗi lần text thay đổi. Gửi "typing=true" 1 lần, rồi reset idle timer.
-    private func handleTypingActivity() {
-        let text = messageField.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-
-        // Xóa hết chữ → coi như ngừng gõ ngay.
-        guard !text.isEmpty else {
-            stopTypingIfNeeded()
-            return
-        }
-
-        if !didSendTypingStart {
-            didSendTypingStart = true
-            socketManager.sendTyping(senderId: myId, receiverId: partnerId, isTyping: true)
-        }
-
-        // Reset idle timer: 2s không gõ → gửi stop.
-        typingIdleTimer?.invalidate()
-        typingIdleTimer = Timer.scheduledTimer(withTimeInterval: typingIdleInterval, repeats: false) { [weak self] _ in
-            self?.stopTypingIfNeeded()
-        }
-    }
-
-    /// Gửi "typing=false" nếu trước đó đã gửi start.
-    private func stopTypingIfNeeded() {
-        typingIdleTimer?.invalidate()
-        typingIdleTimer = nil
-        guard didSendTypingStart else { return }
-        didSendTypingStart = false
-        socketManager.sendTyping(senderId: myId, receiverId: partnerId, isTyping: false)
+        viewModel.handleTypingActivity(text: messageField.text ?? "")
     }
 
     private func updateSendButtonState() {
@@ -210,37 +169,14 @@ final class ChatViewController: UIViewController {
     @objc private func sendTapped() {
         let content = messageField.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         guard !content.isEmpty else { return }
-
         messageField.text = ""
         updateSendButtonState()
-        // Gửi tin = ngừng gõ.
-        stopTypingIfNeeded()
-
-        APIClient.shared.sendMessage(senderId: myId, receiverId: partnerId, content: content) { [weak self] result in
-            DispatchQueue.main.async {
-                guard let self = self else { return }
-                switch result {
-                case .success(let message):
-                    // Tránh trùng nếu socket cũng đẩy về cùng id
-                    self.appendMessageIfNeeded(message)
-                case .failure(let error):
-                    print("⚠️ sendMessage failed: \(error)")
-                    self.showSendError()
-                }
-            }
-        }
-    }
-
-    private func appendMessageIfNeeded(_ message: Message) {
-        guard !messages.contains(where: { $0.id == message.id }) else { return }
-        messages.append(message)
-        tableView.insertRows(at: [IndexPath(row: messages.count - 1, section: 0)], with: .automatic)
-        scrollToBottom(animated: true)
+        viewModel.sendMessage(content)
     }
 
     private func showSendError() {
-        let alert = UIAlertController(title: "Lỗi", message: "Không gửi được tin nhắn.", preferredStyle: .alert)
-        alert.addAction(UIAlertAction(title: "OK", style: .default))
+        let alert = UIAlertController(title: L10n.Common.error, message: "Không gửi được tin nhắn.", preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: L10n.Common.ok, style: .default))
         present(alert, animated: true)
     }
 
@@ -319,8 +255,8 @@ private extension ChatViewController {
                         let vc = PollViewController(poll: poll)
                         self.navigationController?.pushViewController(vc, animated: true)
                     case .failure:
-                        let a = UIAlertController(title: "Lỗi", message: "Không mở được poll này.", preferredStyle: .alert)
-                        a.addAction(UIAlertAction(title: "OK", style: .default))
+                        let a = UIAlertController(title: L10n.Common.error, message: "Không mở được poll này.", preferredStyle: .alert)
+                        a.addAction(UIAlertAction(title: L10n.Common.ok, style: .default))
                         self.present(a, animated: true)
                     }
                 }
@@ -329,47 +265,11 @@ private extension ChatViewController {
     }
 }
 
-// MARK: - ChatSocketDelegate
-extension ChatViewController: ChatSocketDelegate {
-    func didReceiveMessage(_ message: Message) {
-        // Chỉ nhận tin trong cuộc hội thoại này
-        let isInThisChat =
-            (message.senderId == myId && message.receiverId == partnerId) ||
-            (message.senderId == partnerId && message.receiverId == myId)
-        guard isInThisChat else { return }
-
-        // Đối phương vừa gửi tin → ẩn indicator ngay.
-        if message.senderId == partnerId { setPartnerTyping(false) }
-        appendMessageIfNeeded(message)
-    }
-
-    func didReceiveTyping(senderId: String, isTyping: Bool) {
-        // Chỉ quan tâm khi chính đối phương trong cuộc chat này đang gõ.
-        guard senderId == partnerId else { return }
-        setPartnerTyping(isTyping)
-    }
-}
-
-// MARK: - Incoming typing indicator
+// MARK: - Typing indicator (footer)
 private extension ChatViewController {
-    func setPartnerTyping(_ typing: Bool) {
-        partnerTypingTimeout?.invalidate()
-        partnerTypingTimeout = nil
-
-        if typing {
-            showTypingIndicator()
-            // An toàn: tự ẩn nếu không nhận được event stop.
-            partnerTypingTimeout = Timer.scheduledTimer(withTimeInterval: partnerTypingTTL, repeats: false) { [weak self] _ in
-                self?.hideTypingIndicator()
-            }
-        } else {
-            hideTypingIndicator()
-        }
-    }
-
     func showTypingIndicator() {
-        guard !isPartnerTyping else { return }
-        isPartnerTyping = true
+        guard !showingTypingIndicator else { return }
+        showingTypingIndicator = true
         typingIndicator.sizeToFitFooter(width: tableView.bounds.width)
         tableView.tableFooterView = typingIndicator
         typingIndicator.startAnimating()
@@ -377,8 +277,8 @@ private extension ChatViewController {
     }
 
     func hideTypingIndicator() {
-        guard isPartnerTyping else { return }
-        isPartnerTyping = false
+        guard showingTypingIndicator else { return }
+        showingTypingIndicator = false
         typingIndicator.stopAnimating()
         tableView.tableFooterView = nil
     }

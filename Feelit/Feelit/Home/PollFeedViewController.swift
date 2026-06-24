@@ -7,9 +7,11 @@ final class PollFeedViewController: UIViewController {
 
     override var preferredStatusBarStyle: UIStatusBarStyle { .lightContent }
 
-    private let categories = PollFeedData.categories
-    private var selectedCategory = PollFeedData.categories.first ?? "Xu hướng"
-    private var items: [PollCardItem] = []
+    private let viewModel = PollFeedViewModel()
+    private var categories: [String] { viewModel.categories }
+    private var selectedCategory: String { viewModel.selectedCategory }
+    private var items: [PollCardItem] { viewModel.items }
+    private var savedItemIds: Set<String> = []
 
     private let chipsScroll = UIScrollView()
     private let chipsStack = UIStackView()
@@ -53,7 +55,6 @@ final class PollFeedViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = FeelitColors.background
-        applyFilter()
         setupHeader()
         setupCollection()
     }
@@ -117,9 +118,8 @@ final class PollFeedViewController: UIViewController {
 
     // MARK: Category
     private func selectCategory(_ index: Int) {
-        selectedCategory = categories[index]
+        viewModel.selectCategory(index)
         updateChipStyles()
-        applyFilter()
         collectionView.reloadData()
         collectionView.setContentOffset(.zero, animated: false)
     }
@@ -130,11 +130,6 @@ final class PollFeedViewController: UIViewController {
         }
     }
 
-    private func applyFilter() {
-        items = selectedCategory == "Xu hướng"
-            ? PollFeedData.items
-            : PollFeedData.items.filter { $0.category == selectedCategory }
-    }
 }
 
 // MARK: - DataSource / Delegate
@@ -144,7 +139,8 @@ extension PollFeedViewController: UICollectionViewDataSource, UICollectionViewDe
 
     func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
         let cell = collectionView.dequeueReusableCell(withReuseIdentifier: PollCardCell.reuseId, for: indexPath) as! PollCardCell
-        cell.configure(with: items[indexPath.item])
+        let item = items[indexPath.item]
+        cell.configure(with: item, isSaved: savedItemIds.contains(item.id))
         cell.delegate = self
         return cell
     }
@@ -157,5 +153,34 @@ extension PollFeedViewController: UICollectionViewDataSource, UICollectionViewDe
     func pollCardDidSelect(_ item: PollCardItem) {
         let vc = PollDetailViewController(item: item)
         navigationController?.pushViewController(vc, animated: true)
+    }
+
+    func pollCardDidTapComment(_ item: PollCardItem) {
+        let vc = CommentsOverlayViewController(item: item)
+        if let sheet = vc.sheetPresentationController {
+            if #available(iOS 16.0, *) {
+                sheet.detents = [.custom { $0.maximumDetentValue * 0.85 }]
+            } else {
+                sheet.detents = [.large()]
+            }
+            sheet.prefersGrabberVisible = true
+            sheet.preferredCornerRadius = 24
+        }
+        present(vc, animated: true)
+    }
+
+    func pollCardDidTapShare(_ item: PollCardItem, from cell: PollCardCell) {
+        // Link mẫu tạm thời tới poll.
+        let link = URL(string: "https://feelit.vn/poll/\(item.id)")!
+        let activity = UIActivityViewController(
+            activityItems: [item.title, link], applicationActivities: nil)
+        // iPad: neo popover vào cell.
+        activity.popoverPresentationController?.sourceView = cell
+        activity.popoverPresentationController?.sourceRect = cell.bounds
+        present(activity, animated: true)
+    }
+
+    func pollCardDidToggleSave(_ item: PollCardItem, saved: Bool) {
+        if saved { savedItemIds.insert(item.id) } else { savedItemIds.remove(item.id) }
     }
 }

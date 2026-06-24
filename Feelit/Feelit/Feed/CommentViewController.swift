@@ -139,7 +139,7 @@ final class CommentViewController: UIViewController {
         textField.font = FeelitFonts.body
         textField.textColor = FeelitColors.textPrimary
         textField.attributedPlaceholder = NSAttributedString(
-            string: "Viết bình luận...",
+            string: L10n.Feed.commentPlaceholder,
             attributes: [.foregroundColor: FeelitColors.textTertiary])
         textField.translatesAutoresizingMaskIntoConstraints = false
         textField.leftView = UIView(frame: CGRect(x: 0, y: 0, width: 14, height: 1))
@@ -223,13 +223,13 @@ final class CommentViewController: UIViewController {
         emoji.textAlignment = .center
 
         let line1 = UILabel()
-        line1.text = "Chưa có bình luận nào"
+        line1.text = L10n.Feed.commentEmptyTitle
         line1.font = FeelitFonts.body
         line1.textColor = FeelitColors.textSecondary
         line1.textAlignment = .center
 
         let line2 = UILabel()
-        line2.text = "Hãy là người đầu tiên!"
+        line2.text = L10n.Feed.commentEmptySubtitle
         line2.font = FeelitFonts.caption
         line2.textColor = FeelitColors.textTertiary
         line2.textAlignment = .center
@@ -275,7 +275,7 @@ final class CommentViewController: UIViewController {
 
     // MARK: Helpers
     private func updateTitle() {
-        titleLabel.text = "\(viewModel.commentCount) bình luận"
+        titleLabel.text = L10n.Feed.commentsTitle(viewModel.commentCount)
     }
 
     private func updateEmptyState() {

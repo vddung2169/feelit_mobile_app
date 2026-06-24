@@ -7,9 +7,10 @@ final class PollDetailViewController: UIViewController {
 
     override var preferredStatusBarStyle: UIStatusBarStyle { .lightContent }
 
-    private let item: PollCardItem
+    private let viewModel: PollDetailViewModel
+    private var item: PollCardItem { viewModel.item }
     init(item: PollCardItem) {
-        self.item = item
+        self.viewModel = PollDetailViewModel(item: item)
         super.init(nibName: nil, bundle: nil)
     }
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
@@ -18,17 +19,14 @@ final class PollDetailViewController: UIViewController {
     private let content = UIStackView()
     private let chart = DetailLineChartView()
 
-    private let rulesText = "Resolves Yes if the simple average of the sixty seconds of CF Benchmarks' Bitcoin Real-Time Index (BRTI) before 5 AM EDT is above 62599.99 at 5 AM EDT on Jun 19, 2026. Outcome verified from CF Benchmarks.\n\nNot all cryptocurrency price data is the same. While checking a source like Google or Coinbase may help guide your decision, the price used to determine this market is based on CF Benchmarks' corresponding Real Time Index (RTI). At the last minute before expiration, 60 RTI prices are collected. The official and final value is the average of these prices.\n\nNote: this event is directional."
-    private let insiderText = "The following are prohibited from trading this contract: Persons who are employed by any of the Source Agencies are not permitted to trade on the Contract.\n\nPersons who hold any material, non-public information on the Underlying are not permitted to trade on the Contract."
-
     override func viewDidLoad() {
         super.viewDidLoad()
         overrideUserInterfaceStyle = .dark
         view.backgroundColor = FeelitColors.background
         setupScroll()
         buildContent()
-        chart.yesSeries = Self.wave(count: 24, base: 0.55, amp: 0.18, up: 0.15)
-        chart.noSeries  = Self.wave(count: 24, base: 0.45, amp: 0.16, up: -0.12)
+        chart.yesSeries = viewModel.yesSeries
+        chart.noSeries  = viewModel.noSeries
     }
 
     private func setupScroll() {
@@ -56,14 +54,15 @@ final class PollDetailViewController: UIViewController {
     }
 
     private func buildContent() {
-        // Back
-        let back = AuthUI.backButton(target: self, action: #selector(backTapped))
-        let backRow = UIStackView(arrangedSubviews: [back, UIView()])
-        backRow.axis = .horizontal
+        // Top: chip danh mục + tìm kiếm
+        content.addArrangedSubview(topChips())
+
+        // Header navigation: ‹ Trở lại  |  chuông thông báo
+        content.addArrangedSubview(headerNav())
 
         // Category · cadence
-        content.addArrangedSubview(backRow)
-        content.addArrangedSubview(label("\(item.category) · \(item.cadence)", 11, .light, 0xEDEDED))
+        let tag = label("\(item.category) · \(item.cadence)", 12, .light, 0xEDEDED)
+        content.addArrangedSubview(tag)
 
         // Title + icons
         let title = label(item.title, 20, .medium, 0xEDEDED); title.numberOfLines = 0
@@ -74,30 +73,22 @@ final class PollDetailViewController: UIViewController {
         save.setContentHuggingPriority(.required, for: .horizontal)
         share.setContentHuggingPriority(.required, for: .horizontal)
         content.addArrangedSubview(titleRow)
-        content.setCustomSpacing(8, after: content.arrangedSubviews[1])
+        content.setCustomSpacing(8, after: tag)
 
-        // Price block
-        content.addArrangedSubview(priceBlock())
+        // Hai chỉ số: Giá cần vượt · Giá hiện tại
+        content.addArrangedSubview(metricsRow())
 
-        // Chart + legend
-        let legend = UIStackView(arrangedSubviews: [dot(0x4CAF50, "CÓ"), dot(0xF44336, "KHÔNG"), UIView()])
-        legend.axis = .horizontal; legend.spacing = 14
-        content.addArrangedSubview(legend)
+        // Chart
         chart.translatesAutoresizingMaskIntoConstraints = false
         chart.heightAnchor.constraint(equalToConstant: 170).isActive = true
         content.addArrangedSubview(chart)
 
-        // Tăng / Giảm
-        let up = voteButton("Tăng", 0x4CAF50)
-        let down = voteButton("Giảm", 0xF44336)
-        let voteRow = UIStackView(arrangedSubviews: [up, down])
-        voteRow.axis = .horizontal; voteRow.spacing = 12; voteRow.distribution = .fillEqually
-        up.heightAnchor.constraint(equalToConstant: 50).isActive = true
-        content.addArrangedSubview(voteRow)
+        // Tăng / Neutral / Giảm
+        content.addArrangedSubview(voteRow())
 
         // Collapsibles
-        content.addArrangedSubview(CollapsibleSection(title: "Quy tắc thị trường", body: rulesText, expanded: true))
-        content.addArrangedSubview(CollapsibleSection(title: "Giao dịch nội gián bị cấm", body: insiderText, expanded: true))
+        content.addArrangedSubview(CollapsibleSection(title: "Quy tắc thị trường", body: viewModel.rulesText, expanded: true))
+        content.addArrangedSubview(CollapsibleSection(title: "Giao dịch nội gián bị cấm", body: viewModel.insiderText, expanded: true))
 
         // Comments header tabs
         content.addArrangedSubview(commentTabs())
@@ -105,28 +96,92 @@ final class PollDetailViewController: UIViewController {
         // Comment input
         content.addArrangedSubview(commentInput())
 
-        // Sample comment
-        content.addArrangedSubview(sampleComment())
+        // Sample comments
+        content.addArrangedSubview(commentView(
+            username: "fin.enjoyer", vote: "Tăng · 15% · 19 th 06",
+            body: "Khả năng là sẽ tăng đấy các bảnh à tại mình có xài bùa may mắn",
+            time: "5h", replies: 2))
+        content.addArrangedSubview(commentView(
+            username: "moon.boy", vote: "Tăng · 22% · 19 th 06",
+            body: "BTC giữ vùng giá này là chuẩn bài, mình all-in 🚀",
+            time: "5h", replies: 2))
     }
 
     // MARK: Sections
-    private func priceBlock() -> UIView {
-        let cap = label("Giá hiện tại", 11, .light, 0xEDEDED)
-        let price = label(item.currentPrice, 25, .medium, 0xEDEDED)
-        let change = label("\(item.isUp ? "▲" : "▼") \(item.changePercent)", 12, .medium,
-                           item.isUp ? 0x4CAF50 : 0xF44336)
-        let row = UIStackView(arrangedSubviews: [price, change, UIView()])
-        row.axis = .horizontal; row.spacing = 8; row.alignment = .firstBaseline
-        let v = UIStackView(arrangedSubviews: [cap, row])
-        v.axis = .vertical; v.spacing = 2; v.alignment = .leading
-        return v
+    private func topChips() -> UIView {
+        let row = UIStackView()
+        row.axis = .horizontal; row.spacing = 8; row.alignment = .center
+        row.translatesAutoresizingMaskIntoConstraints = false
+        for (i, c) in PollFeedData.categories.enumerated() {
+            row.addArrangedSubview(chip(c, selected: i == selectedCategoryIndex))
+        }
+        let scroll = UIScrollView()
+        scroll.showsHorizontalScrollIndicator = false
+        scroll.translatesAutoresizingMaskIntoConstraints = false
+        scroll.addSubview(row)
+        NSLayoutConstraint.activate([
+            row.topAnchor.constraint(equalTo: scroll.topAnchor),
+            row.bottomAnchor.constraint(equalTo: scroll.bottomAnchor),
+            row.leadingAnchor.constraint(equalTo: scroll.leadingAnchor),
+            row.trailingAnchor.constraint(equalTo: scroll.trailingAnchor),
+            row.heightAnchor.constraint(equalTo: scroll.heightAnchor),
+            scroll.heightAnchor.constraint(equalToConstant: 32),
+        ])
+        let search = iconButton("magnifyingglass")
+        search.setContentHuggingPriority(.required, for: .horizontal)
+        search.setContentCompressionResistancePriority(.required, for: .horizontal)
+        let h = UIStackView(arrangedSubviews: [scroll, search])
+        h.axis = .horizontal; h.spacing = 10; h.alignment = .center
+        return h
+    }
+
+    private var selectedCategoryIndex: Int {
+        PollFeedData.categories.firstIndex(of: item.category) ?? 0
+    }
+
+    private func headerNav() -> UIView {
+        let back = AuthUI.backButton(target: self, action: #selector(backTapped))
+        let bell1 = notifBell()
+        let bell2 = notifBell()
+        let row = UIStackView(arrangedSubviews: [back, UIView(), bell1, bell2])
+        row.axis = .horizontal; row.spacing = 12; row.alignment = .center
+        bell1.setContentHuggingPriority(.required, for: .horizontal)
+        bell2.setContentHuggingPriority(.required, for: .horizontal)
+        return row
+    }
+
+    private func metricsRow() -> UIView {
+        let beat = metric(caption: "Giá cần vượt", value: item.currentPrice, valueHex: 0xEDEDED)
+        let now = metric(caption: "Giá hiện tại", value: item.marketPrice,
+                         valueHex: item.isUp ? 0x4CAF50 : 0xF44336)
+        let row = UIStackView(arrangedSubviews: [beat, now])
+        row.axis = .horizontal; row.spacing = 16; row.distribution = .fillEqually; row.alignment = .top
+        return row
+    }
+
+    private func voteRow() -> UIView {
+        let up = voteButton("Tăng", 0x74FF7A)
+        let neutral = voteButton("Neutral", 0xFFFFFF)
+        let down = voteButton("Giảm", 0xEF5350)
+        let row = UIStackView(arrangedSubviews: [up, neutral, down])
+        row.axis = .horizontal; row.spacing = 12; row.alignment = .fill
+        up.heightAnchor.constraint(equalToConstant: 48).isActive = true
+        neutral.widthAnchor.constraint(equalToConstant: 96).isActive = true
+        up.widthAnchor.constraint(equalTo: down.widthAnchor).isActive = true
+        return row
     }
 
     private func commentTabs() -> UIView {
-        let a = label("Bình luận", 14, .semibold, 0xEDEDED)
-        let b = label("Hoạt động", 14, .medium, 0xB3B3B3)
-        let s = UIStackView(arrangedSubviews: [a, b, UIView()])
-        s.axis = .horizontal; s.spacing = 20
+        let a = pill("Bình luận", icon: "bubble.left", selected: true)
+        let b = pill("Hoạt động", icon: "bolt", selected: false)
+        let seg = UIStackView(arrangedSubviews: [a, b])
+        seg.axis = .horizontal; seg.spacing = 0
+        seg.backgroundColor = UIColor(hex: 0x303030)
+        seg.layer.cornerRadius = 9
+        seg.isLayoutMarginsRelativeArrangement = true
+        seg.layoutMargins = .init(top: 3, left: 3, bottom: 3, right: 3)
+        let s = UIStackView(arrangedSubviews: [seg, UIView()])
+        s.axis = .horizontal
         return s
     }
 
@@ -164,34 +219,120 @@ final class PollDetailViewController: UIViewController {
         return box
     }
 
-    private func sampleComment() -> UIView {
-        let avatar = AvatarView(size: 36, fontSize: 14)
-        avatar.configure(username: "fin.enjoyer")
-        let name = label("fin.enjoyer", 16, .regular, 0xEDEDED)
-        let meta = label("Tăng · 15% · 19 th 06", 12, .regular, 0x4CAF50)
-        let body = label("Khả năng cao BTC giữ vùng giá này tới sáng mai mất 🚀", 14, .regular, 0xB3B3B3)
-        body.numberOfLines = 0
-        let textCol = UIStackView(arrangedSubviews: [name, meta, body])
-        textCol.axis = .vertical; textCol.spacing = 3
-        textCol.setCustomSpacing(6, after: meta)
+    private func commentView(username: String, vote: String, body: String,
+                             time: String, replies: Int) -> UIView {
+        let avatar = AvatarView(size: 48, fontSize: 18)
+        avatar.configure(username: username)
+        avatar.setContentHuggingPriority(.required, for: .horizontal)
+
+        let name = label(username, 16, .medium, 0xEDEDED)
+        let badge = PaddingLabel(insets: .init(top: 1, left: 8, bottom: 1, right: 8))
+        badge.text = vote
+        badge.font = .systemFont(ofSize: 11, weight: .medium)
+        badge.textColor = UIColor(hex: 0x111111)
+        badge.backgroundColor = UIColor(hex: 0x74FF7A)
+        badge.layer.cornerRadius = 8
+        badge.clipsToBounds = true
+        badge.setContentHuggingPriority(.required, for: .horizontal)
+        let badgeRow = UIStackView(arrangedSubviews: [badge, UIView()])
+        badgeRow.axis = .horizontal
+
+        let bodyLabel = label(body, 14, .regular, 0xEDEDED)
+        bodyLabel.numberOfLines = 0
+
+        let timeLabel = label(time, 12, .regular, 0x606060)
+        let reply = label("Trả lời (\(replies))", 12, .regular, 0xB3B3B3)
+        let footer = UIStackView(arrangedSubviews: [timeLabel, reply, UIView()])
+        footer.axis = .horizontal; footer.spacing = 12; footer.alignment = .center
+
+        let textCol = UIStackView(arrangedSubviews: [name, badgeRow, bodyLabel, footer])
+        textCol.axis = .vertical; textCol.spacing = 4
+        textCol.setCustomSpacing(8, after: badgeRow)
+        textCol.setCustomSpacing(8, after: bodyLabel)
+
         let row = UIStackView(arrangedSubviews: [avatar, textCol])
         row.axis = .horizontal; row.spacing = 10; row.alignment = .top
-        avatar.setContentHuggingPriority(.required, for: .horizontal)
         return row
     }
 
     // MARK: Helpers
-    private func dot(_ color: UInt32, _ text: String) -> UIView {
-        let d = UIView()
-        d.backgroundColor = UIColor(hex: color)
-        d.layer.cornerRadius = 4
-        d.translatesAutoresizingMaskIntoConstraints = false
-        d.widthAnchor.constraint(equalToConstant: 8).isActive = true
-        d.heightAnchor.constraint(equalToConstant: 8).isActive = true
-        let l = label(text, 11, .medium, 0xEDEDED)
-        let s = UIStackView(arrangedSubviews: [d, l])
-        s.axis = .horizontal; s.spacing = 5; s.alignment = .center
-        return s
+    private func chip(_ text: String, selected: Bool) -> UIView {
+        let l = PaddingLabel(insets: .init(top: 7, left: 12, bottom: 7, right: 12))
+        l.text = text
+        l.font = .systemFont(ofSize: 12, weight: .medium)
+        l.textColor = UIColor(hex: 0xEDEDED)
+        l.backgroundColor = selected ? UIColor(hex: 0x292929) : .clear
+        l.layer.cornerRadius = 16
+        l.clipsToBounds = true
+        if !selected {
+            l.layer.borderWidth = 1
+            l.layer.borderColor = FeelitColors.border.cgColor
+        }
+        l.setContentHuggingPriority(.required, for: .horizontal)
+        return l
+    }
+
+    private func notifBell() -> UIView {
+        let iv = UIImageView(image: UIImage(systemName: "bell",
+            withConfiguration: UIImage.SymbolConfiguration(pointSize: 18, weight: .regular)))
+        iv.tintColor = UIColor(hex: 0x969696)
+        iv.contentMode = .scaleAspectFit
+        iv.translatesAutoresizingMaskIntoConstraints = false
+        let dot = UIView()
+        dot.backgroundColor = UIColor(hex: 0xFE3333)
+        dot.layer.cornerRadius = 3
+        dot.translatesAutoresizingMaskIntoConstraints = false
+        let wrap = UIView()
+        wrap.translatesAutoresizingMaskIntoConstraints = false
+        wrap.addSubview(iv)
+        wrap.addSubview(dot)
+        NSLayoutConstraint.activate([
+            wrap.widthAnchor.constraint(equalToConstant: 24),
+            wrap.heightAnchor.constraint(equalToConstant: 24),
+            iv.centerXAnchor.constraint(equalTo: wrap.centerXAnchor),
+            iv.centerYAnchor.constraint(equalTo: wrap.centerYAnchor),
+            iv.widthAnchor.constraint(equalToConstant: 22),
+            iv.heightAnchor.constraint(equalToConstant: 22),
+            dot.widthAnchor.constraint(equalToConstant: 6),
+            dot.heightAnchor.constraint(equalToConstant: 6),
+            dot.topAnchor.constraint(equalTo: wrap.topAnchor, constant: 1),
+            dot.trailingAnchor.constraint(equalTo: wrap.trailingAnchor, constant: -1),
+        ])
+        return wrap
+    }
+
+    private func metric(caption: String, value: String, valueHex: UInt32) -> UIView {
+        let swatch = UIView()
+        swatch.backgroundColor = UIColor(hex: 0x3E63DD)
+        swatch.layer.cornerRadius = 2
+        swatch.translatesAutoresizingMaskIntoConstraints = false
+        swatch.widthAnchor.constraint(equalToConstant: 6).isActive = true
+        swatch.heightAnchor.constraint(equalToConstant: 6).isActive = true
+        let cap = label(caption, 12, .regular, 0xEDEDED)
+        let capRow = UIStackView(arrangedSubviews: [swatch, cap, UIView()])
+        capRow.axis = .horizontal; capRow.spacing = 6; capRow.alignment = .center
+        let val = label(value, 22, .semibold, valueHex)
+        let v = UIStackView(arrangedSubviews: [capRow, val])
+        v.axis = .vertical; v.spacing = 6; v.alignment = .leading
+        return v
+    }
+
+    private func pill(_ text: String, icon: String, selected: Bool) -> UIView {
+        let iv = UIImageView(image: UIImage(systemName: icon,
+            withConfiguration: UIImage.SymbolConfiguration(pointSize: 12, weight: .regular)))
+        iv.tintColor = UIColor(hex: selected ? 0xEDEDED : 0x525252)
+        iv.contentMode = .scaleAspectFit
+        iv.setContentHuggingPriority(.required, for: .horizontal)
+        let l = label(text, 13, .medium, selected ? 0xEDEDED : 0xB3B3B3)
+        let row = UIStackView(arrangedSubviews: [iv, l])
+        row.axis = .horizontal; row.spacing = 6; row.alignment = .center
+        row.isLayoutMarginsRelativeArrangement = true
+        row.layoutMargins = .init(top: 6, left: 14, bottom: 6, right: 14)
+        if selected {
+            row.backgroundColor = UIColor(hex: 0x111111)
+            row.layer.cornerRadius = 7
+        }
+        return row
     }
 
     private func label(_ text: String, _ size: CGFloat, _ weight: UIFont.Weight, _ hex: UInt32) -> UILabel {
@@ -224,15 +365,6 @@ final class PollDetailViewController: UIViewController {
     }
 
     @objc private func backTapped() { navigationController?.popViewController(animated: true) }
-
-    /// Sinh dữ liệu sóng giả lập 0...1.
-    private static func wave(count: Int, base: CGFloat, amp: CGFloat, up: CGFloat) -> [CGFloat] {
-        (0..<count).map { i in
-            let t = CGFloat(i) / CGFloat(count - 1)
-            let s = sin(t * .pi * 3) * amp + sin(t * .pi * 7) * amp * 0.4
-            return min(max(base + s + up * t, 0.05), 0.95)
-        }
-    }
 }
 
 // MARK: - CollapsibleSection

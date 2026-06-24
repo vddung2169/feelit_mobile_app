@@ -7,7 +7,7 @@ final class FeedViewController: UIViewController {
 
     private enum Section: Int, CaseIterable { case pulse, trending, posts }
 
-    private let polls = FEMock.polls   // "Đang Hot" — mock tĩnh (không qua ViewModel)
+    private var polls: [FEPoll] { viewModel.trendingPolls }   // "Đang Hot" — mock tĩnh qua ViewModel
     private let viewModel = FeedViewModel()
     private var cancellables = Set<AnyCancellable>()
     private var posts: [FEPost] { viewModel.posts }   // nguồn: ViewModel (GET /api/posts)
@@ -120,18 +120,16 @@ final class FeedViewController: UIViewController {
 
     private func createPoll(title: String) {
         navigationItem.rightBarButtonItem?.isEnabled = false
-        APIClient.shared.createPoll(title: title, durationSeconds: 60) { [weak self] result in
-            DispatchQueue.main.async {
-                self?.navigationItem.rightBarButtonItem?.isEnabled = true
-                switch result {
-                case .success(let poll):
-                    // Tạo xong → join vào xem vote luôn.
-                    let vc = PollViewController(poll: poll)
-                    vc.hidesBottomBarWhenPushed = true   // ẩn floating tab bar khi xem poll
-                    self?.navigationController?.pushViewController(vc, animated: true)
-                case .failure(let error):
-                    self?.showError(error.localizedDescription)
-                }
+        viewModel.createPoll(title: title) { [weak self] result in
+            self?.navigationItem.rightBarButtonItem?.isEnabled = true
+            switch result {
+            case .success(let poll):
+                // Tạo xong → join vào xem vote luôn.
+                let vc = PollViewController(poll: poll)
+                vc.hidesBottomBarWhenPushed = true   // ẩn floating tab bar khi xem poll
+                self?.navigationController?.pushViewController(vc, animated: true)
+            case .failure(let error):
+                self?.showError(error.localizedDescription)
             }
         }
     }
@@ -259,7 +257,7 @@ extension FeedViewController: UICollectionViewDataSource, UICollectionViewDelega
         switch Section(rawValue: indexPath.section)! {
         case .pulse:
             let cell = collectionView.dequeueReusableCell(withReuseIdentifier: MarketPulseCell.reuseId, for: indexPath) as! MarketPulseCell
-            cell.configure(bullishPercent: FEMock.marketPulseBullish, voters: FEMock.marketPulseVoters)
+            cell.configure(bullishPercent: viewModel.marketPulseBullish, voters: viewModel.marketPulseVoters)
             return cell
         case .trending:
             let cell = collectionView.dequeueReusableCell(withReuseIdentifier: PollCard.reuseId, for: indexPath) as! PollCard

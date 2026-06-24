@@ -4,9 +4,8 @@ import UIKit
 /// Vuốt lên để hiện card mới. Data 6 card fix sẵn, chưa gọi backend.
 final class NewsViewController: UIViewController {
 
-    private let cards = NewsSampleData.cards
-    /// Lựa chọn đã vote cho từng card (item index -> option index). Giữ lại khi cuộn.
-    private var votes: [Int: Int] = [:]
+    private let viewModel = NewsViewModel()
+    private var cards: [NewsCard] { viewModel.cards }
 
     private lazy var collectionView: UICollectionView = {
         let layout = UICollectionViewFlowLayout()
@@ -80,8 +79,8 @@ extension NewsViewController: UICollectionViewDataSource, UICollectionViewDelega
         let cell = collectionView.dequeueReusableCell(
             withReuseIdentifier: NewsCardCell.id, for: indexPath) as! NewsCardCell
         let item = indexPath.item
-        cell.configure(with: cards[item], selectedIndex: votes[item]) { [weak self] optionIndex in
-            self?.votes[item] = optionIndex
+        cell.configure(with: cards[item], selectedIndex: viewModel.vote(for: item)) { [weak self] optionIndex in
+            self?.viewModel.vote(card: item, option: optionIndex)
         }
         return cell
     }
