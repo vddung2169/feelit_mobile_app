@@ -149,6 +149,38 @@ extension UIView {
         layer.borderColor = FeelitColors.border.cgColor
     }
 
+    /// Style card Liquid Glass cho iOS 26+. Gọi kèm theo #available ở call site.
+    /// KHÔNG set borderWidth — glass tự có viền sáng riêng từ hệ thống.
+    @available(iOS 26.0, *)
+    func applyLiquidGlassCardStyle(corner: CGFloat = Radius.card, interactive: Bool = false) {
+        backgroundColor = .clear
+        layer.cornerRadius = corner
+        layer.borderWidth = 0
+
+        let glass = UIGlassEffect()
+        glass.isInteractive = interactive
+        let effectView = UIVisualEffectView(effect: glass)
+        effectView.layer.cornerRadius = corner
+        effectView.clipsToBounds = true
+        effectView.translatesAutoresizingMaskIntoConstraints = false
+        insertSubview(effectView, at: 0)
+        NSLayoutConstraint.activate([
+            effectView.topAnchor.constraint(equalTo: topAnchor),
+            effectView.bottomAnchor.constraint(equalTo: bottomAnchor),
+            effectView.leadingAnchor.constraint(equalTo: leadingAnchor),
+            effectView.trailingAnchor.constraint(equalTo: trailingAnchor),
+        ])
+    }
+
+    /// Helper tiện dùng — tự chọn nhánh theo OS version, gọi 1 lần duy nhất.
+    func applyAdaptiveCardStyle(corner: CGFloat = Radius.card) {
+        if #available(iOS 26.0, *) {
+            applyLiquidGlassCardStyle(corner: corner)
+        } else {
+            applyCardStyle(corner: corner)
+        }
+    }
+
     /// Animation nhấn card: scale xuống rồi bật lại (spring).
     func animateTapScale(down: CGFloat = 0.96) {
         UIView.animate(withDuration: 0.12, animations: {

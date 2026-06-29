@@ -126,7 +126,7 @@ final class OnboardingUsernameViewController: UIViewController {
     @objc private func continueTapped() {
         guard isValid else { return }
         viewModel.save(input.text ?? "")
-        navigationController?.pushViewController(OnboardingInterestViewController(), animated: true)
+        navigationController?.pushViewController(OnboardingNotificationViewController(), animated: true)
     }
 }
 

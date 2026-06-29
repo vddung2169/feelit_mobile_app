@@ -13,15 +13,16 @@ final class AssetCard: UICollectionViewCell {
 
     override init(frame: CGRect) {
         super.init(frame: frame)
-        contentView.applyCardStyle(corner: Radius.smallCard)
+        contentView.applyCardStyle(background: UIColor(hex: 0xF7F7F7), corner: Radius.smallCard)
+        contentView.layer.borderColor = UIColor(hex: 0xE8E8E8).cgColor
 
         tickerLabel.font = FeelitFonts.heading
         tickerLabel.textColor = FeelitColors.primary
         nameLabel.font = FeelitFonts.caption
-        nameLabel.textColor = FeelitColors.textSecondary
+        nameLabel.textColor = UIColor(hex: 0x818181)
         nameLabel.numberOfLines = 1
         votesLabel.font = FeelitFonts.micro
-        votesLabel.textColor = FeelitColors.textTertiary
+        votesLabel.textColor = UIColor(hex: 0xB9B9B9)
 
         let stack = UIStackView(arrangedSubviews: [logo, tickerLabel, nameLabel, sentimentBar, votesLabel])
         stack.axis = .vertical
@@ -60,10 +61,11 @@ final class InvestorCard: UICollectionViewCell {
 
     override init(frame: CGRect) {
         super.init(frame: frame)
-        contentView.applyCardStyle(corner: Radius.smallCard)
+        contentView.applyCardStyle(background: UIColor(hex: 0xF7F7F7), corner: Radius.smallCard)
+        contentView.layer.borderColor = UIColor(hex: 0xE8E8E8).cgColor
 
         usernameLabel.font = FeelitFonts.title
-        usernameLabel.textColor = FeelitColors.textPrimary
+        usernameLabel.textColor = UIColor(hex: 0x202020)
         usernameLabel.adjustsFontSizeToFitWidth = true
         usernameLabel.minimumScaleFactor = 0.7
         streakLabel.font = FeelitFonts.caption
@@ -114,7 +116,7 @@ final class CategoryChipCell: UICollectionViewCell {
 
     func configure(title: String, selected: Bool) {
         label.text = title
-        contentView.backgroundColor = selected ? FeelitColors.primary : FeelitColors.surfaceElevated
-        label.textColor = selected ? .white : FeelitColors.textSecondary
+        contentView.backgroundColor = selected ? FeelitColors.primary : UIColor(hex: 0xF2F2F2)
+        label.textColor = selected ? .white : UIColor(hex: 0x818181)
     }
 }

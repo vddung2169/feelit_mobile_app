@@ -74,6 +74,19 @@ enum AuthUI {
         return b
     }
 
+    /// Nút phụ dạng text "Bỏ qua" (dùng trong các bước onboarding).
+    static func skipButton(title: String = "Bỏ qua", target: Any?, action: Selector) -> UIButton {
+        var config = UIButton.Configuration.plain()
+        config.attributedTitle = AttributedString(title, attributes:
+            AttributeContainer([.font: UIFont.systemFont(ofSize: 16, weight: .regular)]))
+        config.baseForegroundColor = AuthTheme.textSecondary
+        config.contentInsets = .init(top: 8, leading: 8, bottom: 8, trailing: 8)
+        let b = UIButton(configuration: config)
+        b.translatesAutoresizingMaskIntoConstraints = false
+        b.addTarget(target, action: action, for: .touchUpInside)
+        return b
+    }
+
     /// Cập nhật style nút theo trạng thái hợp lệ (xanh / xám).
     static func setEnabled(_ button: UIButton, _ enabled: Bool) {
         var config = button.configuration

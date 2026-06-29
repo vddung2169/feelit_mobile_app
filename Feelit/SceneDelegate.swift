@@ -14,9 +14,10 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         // Đã đăng nhập (có token trong Keychain) → vào thẳng app chính;
         // chưa thì bắt đầu flow Auth từ màn Welcome.
         window = UIWindow(windowScene: windowScene)
-        window?.overrideUserInterfaceStyle = .dark
         window?.rootViewController = AppRoot.makeRoot()
         window?.makeKeyAndVisible()
+        // Áp dụng theme người dùng đã lưu (Sáng/Tối/Tự động).
+        ThemeManager.shared.apply()
 
         // Refresh token cũng hết hạn → buộc đăng nhập lại.
         NotificationCenter.default.addObserver(

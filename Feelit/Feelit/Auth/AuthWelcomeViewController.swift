@@ -9,8 +9,9 @@ final class AuthWelcomeViewController: UIViewController {
     override var preferredStatusBarStyle: UIStatusBarStyle { .darkContent }
 
     // MARK: UI
+    /// Hero: 2 thẻ biểu đồ (render từ Design/svg/welcome.svg → asset WelcomeIllustration).
     private let illustration: UIImageView = {
-        let iv = UIImageView(image: UIImage(named: "WalletIllustration"))
+        let iv = UIImageView(image: UIImage(named: "WelcomeIllustration"))
         iv.contentMode = .scaleAspectFit
         iv.translatesAutoresizingMaskIntoConstraints = false
         return iv
@@ -107,13 +108,16 @@ final class AuthWelcomeViewController: UIViewController {
 
             illustration.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             illustration.centerYAnchor.constraint(equalTo: region.centerYAnchor),
-            illustration.widthAnchor.constraint(equalToConstant: 260),
-            illustration.heightAnchor.constraint(equalToConstant: 240),
+            illustration.widthAnchor.constraint(equalToConstant: 300),
+            // Giữ đúng tỉ lệ 367:330 của welcome.svg để không méo.
+            illustration.heightAnchor.constraint(equalTo: illustration.widthAnchor, multiplier: 330.0 / 367.0),
         ])
     }
 
     // MARK: Actions
     @objc private func createTapped() {
+        // Đăng ký bắt đầu bằng Email:
+        // Email → OTP (email) → Mật khẩu → SĐT → OTP (SĐT) → "Đăng ký thành công!".
         navigationController?.pushViewController(
             AuthEmailInputViewController(isRegister: true), animated: true)
     }

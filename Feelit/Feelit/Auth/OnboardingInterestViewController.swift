@@ -101,17 +101,7 @@ final class OnboardingInterestViewController: UIViewController {
     private lazy var chips = ChipsFlowView(titles: topics)
     private lazy var continueButton = AuthUI.continueButton(target: self, action: #selector(continueTapped))
 
-    private lazy var skipButton: UIButton = {
-        var config = UIButton.Configuration.plain()
-        config.attributedTitle = AttributedString("Bỏ qua", attributes:
-            AttributeContainer([.font: UIFont.systemFont(ofSize: 16, weight: .regular)]))
-        config.baseForegroundColor = AuthTheme.textSecondary
-        config.contentInsets = .init(top: 8, leading: 8, bottom: 8, trailing: 8)
-        let b = UIButton(configuration: config)
-        b.translatesAutoresizingMaskIntoConstraints = false
-        b.addTarget(self, action: #selector(skipTapped), for: .touchUpInside)
-        return b
-    }()
+    private lazy var skipButton = AuthUI.skipButton(title: "Bỏ qua", target: self, action: #selector(skipTapped))
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -157,16 +147,12 @@ final class OnboardingInterestViewController: UIViewController {
     @objc private func continueTapped() {
         guard !chips.selectedTitles.isEmpty else { return }
         viewModel.save(chips.selectedTitles)
-        goHome()
+        goNext()
     }
 
-    @objc private func skipTapped() { goHome() }
+    @objc private func skipTapped() { goNext() }
 
-    private func goHome() {
-        guard let window = view.window else { return }
-        let home = HomeTabBarController()
-        UIView.transition(with: window, duration: 0.3, options: .transitionCrossDissolve) {
-            window.rootViewController = home
-        }
+    private func goNext() {
+        navigationController?.pushViewController(OnboardingInviteFriendsViewController(), animated: true)
     }
 }

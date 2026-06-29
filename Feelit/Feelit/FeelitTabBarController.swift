@@ -63,6 +63,37 @@ final class FeelitTabBarController: UITabBarController {
     }
 
     private func styleTabBar() {
+        if #available(iOS 26.0, *) {
+            styleTabBarLiquidGlass()
+        } else {
+            styleTabBarLegacy()
+        }
+    }
+
+    @available(iOS 26.0, *)
+    private func styleTabBarLiquidGlass() {
+        // Để UIKit tự render Liquid Glass mặc định — KHÔNG set backgroundEffect,
+        // KHÔNG set backgroundColor, KHÔNG set cornerRadius thủ công.
+        let appearance = UITabBarAppearance()
+        appearance.configureWithDefaultBackground()  // để hệ thống tự quyết định glass
+
+        for state in [appearance.stackedLayoutAppearance,
+                      appearance.inlineLayoutAppearance,
+                      appearance.compactInlineLayoutAppearance] {
+            state.normal.iconColor = FeelitColors.textTertiary
+            state.selected.iconColor = FeelitColors.primary
+            state.normal.titleTextAttributes = [.foregroundColor: UIColor.clear]
+            state.selected.titleTextAttributes = [.foregroundColor: UIColor.clear]
+        }
+
+        tabBar.standardAppearance = appearance
+        tabBar.scrollEdgeAppearance = appearance
+        tabBar.tintColor = FeelitColors.primary
+        tabBar.unselectedItemTintColor = FeelitColors.textTertiary
+        // KHÔNG set cornerRadius/clipsToBounds — để UIKit tự xử lý floating shape
+    }
+
+    private func styleTabBarLegacy() {
         let appearance = UITabBarAppearance()
         appearance.configureWithDefaultBackground()
         appearance.backgroundEffect = UIBlurEffect(style: .dark)
@@ -89,6 +120,12 @@ final class FeelitTabBarController: UITabBarController {
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
+        if #available(iOS 26.0, *) {
+            // Không cần set frame thủ công — UITabBarController trên iOS 26
+            // tự floating đúng vị trí. Ẩn shadowView vì không cần nữa.
+            shadowView.isHidden = true
+            return
+        }
         let width = view.bounds.width - sideInset * 2
         let y = view.bounds.height - view.safeAreaInsets.bottom - barHeight - bottomInset + view.safeAreaInsets.bottom * 0.3
         let frame = CGRect(x: sideInset, y: y, width: width, height: barHeight)

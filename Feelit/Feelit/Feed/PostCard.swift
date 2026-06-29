@@ -68,7 +68,11 @@ final class PostCard: UICollectionViewCell {
 
     // MARK: Setup
     private func setup() {
-        contentView.applyCardStyle()
+        if #available(iOS 26.0, *) {
+            contentView.applyLiquidGlassCardStyle()
+        } else {
+            contentView.applyCardStyle()   // giữ nguyên dòng hiện tại
+        }
         contentView.addSubview(contentStack)
         NSLayoutConstraint.activate([
             contentStack.topAnchor.constraint(equalTo: contentView.topAnchor, constant: Spacing.lg),
@@ -125,8 +129,12 @@ final class PostCard: UICollectionViewCell {
     }
 
     private func makePollEmbed() -> UIView {
-        pollEmbed.backgroundColor = FeelitColors.surfaceElevated
-        pollEmbed.layer.cornerRadius = Radius.smallCard
+        if #available(iOS 26.0, *) {
+            pollEmbed.applyLiquidGlassCardStyle(corner: Radius.smallCard)
+        } else {
+            pollEmbed.backgroundColor = FeelitColors.surfaceElevated
+            pollEmbed.layer.cornerRadius = Radius.smallCard
+        }
 
         pollTitle.font = FeelitFonts.caption
         pollTitle.textColor = FeelitColors.textSecondary

@@ -18,7 +18,7 @@ final class ExploreViewController: UIViewController {
 
     private lazy var collectionView: UICollectionView = {
         let cv = UICollectionView(frame: .zero, collectionViewLayout: makeLayout())
-        cv.backgroundColor = FeelitColors.background
+        cv.backgroundColor = Theme.page
         cv.translatesAutoresizingMaskIntoConstraints = false
         cv.contentInset.bottom = FeelitLayout.scrollBottomInset
         cv.showsVerticalScrollIndicator = false
@@ -27,26 +27,26 @@ final class ExploreViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = FeelitColors.background
+        view.backgroundColor = Theme.page
         setupSearch()
         setupCollectionView()
     }
 
     // MARK: Search
     private func setupSearch() {
-        searchContainer.backgroundColor = FeelitColors.surfaceElevated
+        searchContainer.backgroundColor = Theme.track
         searchContainer.layer.cornerRadius = Radius.button
         searchContainer.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(searchContainer)
 
         let icon = UIImageView(image: UIImage(systemName: "magnifyingglass"))
-        icon.tintColor = FeelitColors.textSecondary
+        icon.tintColor = Theme.textSecondary
         icon.translatesAutoresizingMaskIntoConstraints = false
 
         searchField.attributedPlaceholder = NSAttributedString(
             string: "Tìm cổ phiếu, nhà đầu tư...",
-            attributes: [.foregroundColor: FeelitColors.textTertiary])
-        searchField.textColor = FeelitColors.textPrimary
+            attributes: [.foregroundColor: Theme.textTertiary])
+        searchField.textColor = Theme.textPrimary
         searchField.font = FeelitFonts.body
         searchField.translatesAutoresizingMaskIntoConstraints = false
 

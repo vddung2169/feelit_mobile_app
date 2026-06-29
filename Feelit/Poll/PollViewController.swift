@@ -296,8 +296,26 @@ final class PollViewController: UIViewController {
 
     // MARK: - UI Setup
     private func setupUI() {
-        view.backgroundColor = .systemBackground
+        view.backgroundColor = .systemBackground   // giữ nguyên — system color tự thích ứng
         title = "Live Poll"
+
+        // Áp Liquid Glass cho chartView trên iOS 26+ (nhánh khác giữ
+        // .secondarySystemBackground đã set lúc khai báo ở đầu file).
+        if #available(iOS 26.0, *) {
+            chartView.backgroundColor = .clear
+            let glass = UIGlassEffect()
+            let chartGlassView = UIVisualEffectView(effect: glass)
+            chartGlassView.layer.cornerRadius = 12
+            chartGlassView.clipsToBounds = true
+            chartGlassView.translatesAutoresizingMaskIntoConstraints = false
+            chartView.insertSubview(chartGlassView, at: 0)
+            NSLayoutConstraint.activate([
+                chartGlassView.topAnchor.constraint(equalTo: chartView.topAnchor),
+                chartGlassView.bottomAnchor.constraint(equalTo: chartView.bottomAnchor),
+                chartGlassView.leadingAnchor.constraint(equalTo: chartView.leadingAnchor),
+                chartGlassView.trailingAnchor.constraint(equalTo: chartView.trailingAnchor),
+            ])
+        }
 
         navigationItem.rightBarButtonItem = UIBarButtonItem(
             image: UIImage(systemName: "square.and.arrow.up"),
@@ -310,7 +328,23 @@ final class PollViewController: UIViewController {
         percentRow.distribution = .equalSpacing
         percentRow.translatesAutoresizingMaskIntoConstraints = false
 
-        // Winner banner
+        // Winner banner — Liquid Glass thay nền vàng + border cứng trên iOS 26+.
+        if #available(iOS 26.0, *) {
+            winnerBanner.backgroundColor = .clear
+            winnerBanner.layer.borderWidth = 0
+            let glass = UIGlassEffect()
+            let bannerGlassView = UIVisualEffectView(effect: glass)
+            bannerGlassView.layer.cornerRadius = 12
+            bannerGlassView.clipsToBounds = true
+            bannerGlassView.translatesAutoresizingMaskIntoConstraints = false
+            winnerBanner.insertSubview(bannerGlassView, at: 0)
+            NSLayoutConstraint.activate([
+                bannerGlassView.topAnchor.constraint(equalTo: winnerBanner.topAnchor),
+                bannerGlassView.bottomAnchor.constraint(equalTo: winnerBanner.bottomAnchor),
+                bannerGlassView.leadingAnchor.constraint(equalTo: winnerBanner.leadingAnchor),
+                bannerGlassView.trailingAnchor.constraint(equalTo: winnerBanner.trailingAnchor),
+            ])
+        }
         winnerBanner.addSubview(winnerLabel)
         NSLayoutConstraint.activate([
             winnerLabel.topAnchor.constraint(equalTo: winnerBanner.topAnchor, constant: 16),

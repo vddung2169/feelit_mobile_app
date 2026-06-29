@@ -1,70 +1,77 @@
 import UIKit
 
 // MARK: - WelcomeViewController
-/// Màn "Create a new account" — dựng theo Figma (Feelit_app, node 26-2770).
-/// Hiện đầu tiên khi mở app. Bấm "Sign in here" (hoặc nút Continue) → vào Home.
+/// Màn Welcome — dựng theo Figma (Feelit_app, node 290-13909):
+/// hero là 2 thẻ biểu đồ chồng nhau, wordmark "feelit", tagline tiếng Việt,
+/// nút chính "Tạo tài khoản mới" + dòng "Đã có tài khoản? Đăng nhập".
 final class WelcomeViewController: UIViewController {
 
     // Màu lấy trực tiếp từ Figma
     private let bg = UIColor(hex: 0xFBFBFB)
     private let heading = UIColor(hex: 0x202020)
-    private let buttonGreen = UIColor(hex: 0x003512)
+    private let green = UIColor(hex: 0x4CAF50)
     private let onGreen = UIColor(hex: 0xFBFBFB)
     private let muted = UIColor(hex: 0x818181)
-    private let borderGray = UIColor(hex: 0xCCCCCC)
 
     override var preferredStatusBarStyle: UIStatusBarStyle { .darkContent }
 
+    /// Bỏ qua entrance tự động khi được dẫn vào bằng shared-element transition từ màn logo.
+    var skipAutoEntrance = false
+
     // MARK: UI
-    /// Dùng chung 1 ảnh ví với màn logo để shared-element transition liền mạch.
+    /// Hero: 2 thẻ biểu đồ chồng nhau (vector SVG từ Figma).
     private let illustration: UIImageView = {
-        let iv = UIImageView(image: UIImage(named: "WalletLogo"))
+        let iv = UIImageView(image: UIImage(named: "WelcomeIllustration"))
         iv.contentMode = .scaleAspectFit
         iv.translatesAutoresizingMaskIntoConstraints = false
         return iv
     }()
 
-    /// Bỏ qua entrance tự động khi được dẫn vào bằng shared-element transition từ màn logo.
-    var skipAutoEntrance = false
+    private let wordmark: UIImageView = {
+        let iv = UIImageView(image: UIImage(named: "FeelitWordmark"))
+        iv.contentMode = .scaleAspectFit
+        iv.translatesAutoresizingMaskIntoConstraints = false
+        return iv
+    }()
 
-    private let titleLabel: UILabel = {
+    private let taglineLabel: UILabel = {
         let l = UILabel()
-        l.text = "Create a\nnew account"
+        l.text = "Thể hiện quan điểm & góc nhìn đầu tư"
         l.numberOfLines = 2
         l.textAlignment = .center
-        l.font = .systemFont(ofSize: 40, weight: .heavy)   // Figma: Be Vietnam Pro 700, 48
-        l.adjustsFontSizeToFitWidth = true
-        l.minimumScaleFactor = 0.7
+        l.font = .systemFont(ofSize: 22, weight: .medium)   // Figma: Be Vietnam Pro 500/22
         l.translatesAutoresizingMaskIntoConstraints = false
         return l
     }()
 
-    private lazy var googleButton = makePrimaryButton(
-        title: "Continue with Google", image: UIImage(named: "GoogleIcon"))
-    private lazy var appleButton = makePrimaryButton(
-        title: "Continue with Apple",
-        image: UIImage(systemName: "apple.logo")?.withTintColor(onGreen, renderingMode: .alwaysOriginal))
+    private lazy var primaryButton: UIButton = {
+        var config = UIButton.Configuration.filled()
+        config.baseBackgroundColor = green
+        config.baseForegroundColor = onGreen
+        config.cornerStyle = .capsule
+        config.attributedTitle = AttributedString("Tạo tài khoản mới", attributes:
+            AttributeContainer([.font: UIFont.systemFont(ofSize: 16, weight: .semibold)]))
+        let b = UIButton(configuration: config)
+        b.translatesAutoresizingMaskIntoConstraints = false
+        b.addTarget(self, action: #selector(goUsername), for: .touchUpInside)
+        return b
+    }()
 
     private let alreadyLabel: UILabel = {
         let l = UILabel()
-        l.text = "Already have an account?"
-        l.font = .systemFont(ofSize: 16, weight: .regular)
-        l.textAlignment = .center
+        l.text = "Đã có tài khoản?"
+        l.font = .systemFont(ofSize: 14, weight: .regular)   // Figma: Be Vietnam Pro 400/14
         l.translatesAutoresizingMaskIntoConstraints = false
         return l
     }()
 
     private lazy var signInButton: UIButton = {
         var config = UIButton.Configuration.plain()
-        config.title = "Sign in here"
-        config.attributedTitle = AttributedString("Sign in here", attributes:
-            AttributeContainer([.font: UIFont.systemFont(ofSize: 16, weight: .regular)]))
-        config.baseForegroundColor = muted
-        config.contentInsets = .init(top: 8, leading: 20, bottom: 8, trailing: 20)
+        config.baseForegroundColor = green
+        config.attributedTitle = AttributedString("Đăng nhập", attributes:
+            AttributeContainer([.font: UIFont.systemFont(ofSize: 14, weight: .medium)]))
+        config.contentInsets = .init(top: 6, leading: 4, bottom: 6, trailing: 4)
         let b = UIButton(configuration: config)
-        b.layer.cornerRadius = 20            // pill (height 40)
-        b.layer.borderWidth = 2
-        b.layer.borderColor = borderGray.cgColor
         b.translatesAutoresizingMaskIntoConstraints = false
         b.addTarget(self, action: #selector(goHome), for: .touchUpInside)
         return b
@@ -77,13 +84,8 @@ final class WelcomeViewController: UIViewController {
         super.viewDidLoad()
         overrideUserInterfaceStyle = .light
         view.backgroundColor = bg
-        titleLabel.textColor = heading
+        taglineLabel.textColor = heading
         alreadyLabel.textColor = muted
-
-        // Tạo tài khoản mới → nhập tên; "Sign in here" (user cũ) → vào Home.
-        googleButton.addTarget(self, action: #selector(goUsername), for: .touchUpInside)
-        appleButton.addTarget(self, action: #selector(goUsername), for: .touchUpInside)
-
         setupLayout()
     }
 
@@ -94,35 +96,85 @@ final class WelcomeViewController: UIViewController {
         animateEntrance()
     }
 
-    // MARK: - Shared-element transition hooks (gọi từ LogoLandingViewController)
-    private var transitionMovers: [UIView] { [titleLabel, googleButton, appleButton, alreadyLabel, signInButton] }
+    private func setupLayout() {
+        // wordmark + tagline (căn giữa)
+        let textGroup = UIStackView(arrangedSubviews: [wordmark, taglineLabel])
+        textGroup.axis = .vertical
+        textGroup.spacing = 14
+        textGroup.alignment = .center
+        textGroup.translatesAutoresizingMaskIntoConstraints = false
 
-    /// Frame của ví trong hệ toạ độ `target` — để màn logo biết bay tới đâu.
+        // dòng "Đã có tài khoản? Đăng nhập"
+        let signInRow = UIStackView(arrangedSubviews: [alreadyLabel, signInButton])
+        signInRow.axis = .horizontal
+        signInRow.spacing = 4
+        signInRow.alignment = .center
+        signInRow.translatesAutoresizingMaskIntoConstraints = false
+
+        view.addSubview(illustration)
+        view.addSubview(textGroup)
+        view.addSubview(primaryButton)
+        view.addSubview(signInRow)
+
+        NSLayoutConstraint.activate([
+            // Hero biểu đồ — bám đỉnh, giữ tỉ lệ 366:327 từ Figma.
+            illustration.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 8),
+            illustration.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            illustration.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
+            illustration.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+            illustration.heightAnchor.constraint(equalTo: illustration.widthAnchor, multiplier: 330.0 / 367.0),
+
+            // wordmark theo tỉ lệ Figma 156x55.
+            wordmark.heightAnchor.constraint(equalToConstant: 55),
+            wordmark.widthAnchor.constraint(equalToConstant: 156),
+            taglineLabel.widthAnchor.constraint(lessThanOrEqualToConstant: 300),
+
+            // Nhóm chữ nằm phía trên nút, căn giữa khoảng trống dưới.
+            textGroup.leadingAnchor.constraint(greaterThanOrEqualTo: view.leadingAnchor, constant: 16),
+            textGroup.trailingAnchor.constraint(lessThanOrEqualTo: view.trailingAnchor, constant: -16),
+            textGroup.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            textGroup.bottomAnchor.constraint(equalTo: primaryButton.topAnchor, constant: -28),
+
+            // Nút chính — full width (margin 16), pill.
+            primaryButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
+            primaryButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+            primaryButton.heightAnchor.constraint(equalToConstant: 54),
+            primaryButton.bottomAnchor.constraint(equalTo: signInRow.topAnchor, constant: -12),
+
+            signInRow.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            signInRow.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -16),
+        ])
+    }
+
+    // MARK: - Shared-element transition hooks (gọi từ LogoLandingViewController)
+    private var transitionMovers: [UIView] { [wordmark, taglineLabel, primaryButton, alreadyLabel, signInButton] }
+
+    /// Frame của hero trong hệ toạ độ `target` — để màn logo biết bay tới đâu.
     func walletFrame(in target: UIView) -> CGRect {
         illustration.convert(illustration.bounds, to: target)
     }
 
-    /// Trạng thái bắt đầu: ẩn ví (flyer thay thế) + nội dung trượt xuống mờ.
+    /// Trạng thái bắt đầu: ẩn hero + nội dung trượt xuống mờ.
     func setEntranceStartState() {
         illustration.alpha = 0
         transitionMovers.forEach { $0.alpha = 0; $0.transform = CGAffineTransform(translationX: 0, y: 22) }
     }
 
-    /// Nội dung trượt lên hiện dần (chạy song song lúc ví bay vào).
+    /// Nội dung trượt lên hiện dần (chạy song song lúc hero bay vào).
     func animateContentEntrance() {
         UIView.animate(withDuration: 0.5, delay: 0.05, options: .curveEaseOut) {
             self.transitionMovers.forEach { $0.alpha = 1; $0.transform = .identity }
         }
     }
 
-    /// Hiện ví thật (sau khi flyer đáp đúng vị trí thì gỡ flyer).
+    /// Hiện hero thật (sau khi flyer đáp đúng vị trí thì gỡ flyer).
     func revealWallet() {
         UIView.animate(withDuration: 0.2) { self.illustration.alpha = 1 }
     }
 
-    /// Wallet "pop" vào + tiêu đề/nút trượt lên mờ dần — nối tiếp transition từ logo.
+    /// Hero "pop" vào + nội dung trượt lên mờ dần — entrance tự động khi mở thẳng màn này.
     private func animateEntrance() {
-        let movers = [titleLabel, googleButton, appleButton]
+        let movers = [wordmark, taglineLabel, primaryButton]
         illustration.alpha = 0
         illustration.transform = CGAffineTransform(scaleX: 0.85, y: 0.85)
         movers.forEach {
@@ -137,62 +189,6 @@ final class WelcomeViewController: UIViewController {
         UIView.animate(withDuration: 0.45, delay: 0.15, options: .curveEaseOut) {
             movers.forEach { $0.alpha = 1; $0.transform = .identity }
         }
-    }
-
-    private func setupLayout() {
-        let buttons = UIStackView(arrangedSubviews: [googleButton, appleButton])
-        buttons.axis = .vertical
-        buttons.spacing = 16
-        buttons.translatesAutoresizingMaskIntoConstraints = false
-
-        let middle = UIStackView(arrangedSubviews: [titleLabel, buttons])
-        middle.axis = .vertical
-        middle.spacing = 28
-        middle.translatesAutoresizingMaskIntoConstraints = false
-
-        let bottom = UIStackView(arrangedSubviews: [alreadyLabel, signInButton])
-        bottom.axis = .vertical
-        bottom.spacing = 10
-        bottom.alignment = .center
-        bottom.translatesAutoresizingMaskIntoConstraints = false
-
-        view.addSubview(illustration)
-        view.addSubview(middle)
-        view.addSubview(bottom)
-
-        NSLayoutConstraint.activate([
-            illustration.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 24),
-            illustration.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            illustration.widthAnchor.constraint(equalToConstant: 174),
-            illustration.heightAnchor.constraint(equalToConstant: 135),
-
-            middle.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
-            middle.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
-            middle.centerYAnchor.constraint(equalTo: view.centerYAnchor, constant: 40),
-
-            googleButton.heightAnchor.constraint(equalToConstant: 48),
-            appleButton.heightAnchor.constraint(equalToConstant: 48),
-
-            bottom.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            bottom.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -24),
-            signInButton.heightAnchor.constraint(equalToConstant: 40),
-        ])
-    }
-
-    // MARK: Factory
-    private func makePrimaryButton(title: String, image: UIImage?) -> UIButton {
-        var config = UIButton.Configuration.filled()
-        config.baseBackgroundColor = buttonGreen
-        config.baseForegroundColor = onGreen
-        config.image = image
-        config.imagePadding = 10
-        config.imagePlacement = .leading
-        config.cornerStyle = .capsule
-        config.attributedTitle = AttributedString(title, attributes:
-            AttributeContainer([.font: UIFont.systemFont(ofSize: 16, weight: .regular)]))
-        let b = UIButton(configuration: config)
-        b.translatesAutoresizingMaskIntoConstraints = false
-        return b
     }
 
     // MARK: Actions

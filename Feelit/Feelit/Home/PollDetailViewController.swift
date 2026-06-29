@@ -5,12 +5,35 @@ import UIKit
 /// các mục quy tắc thu gọn được, tab Bình luận/Hoạt động + ô nhập bình luận.
 final class PollDetailViewController: UIViewController {
 
-    override var preferredStatusBarStyle: UIStatusBarStyle { .lightContent }
+    // MARK: - Bảng màu Light mode (Figma 481-23974 "Home | Poll Detail")
+    private enum L {
+        static let pageBg     = Theme.page
+        static let cardBg     = Theme.card
+        static let textPrimary = Theme.textPrimary
+        static let icon       = Theme.textPrimary
+        static let muted      = Theme.textSecondary
+        static let placeholder = Theme.textTertiary
+        static let divider    = Theme.borderStrong
+        static let separator  = Theme.textTertiary
+        // Chip chọn dạng đảo màu (nền tối + chữ sáng ở light; ngược lại ở dark).
+        static let chipSelected = Theme.textPrimary
+        static let chipSelectedText = Theme.page
+        static let segmentBg  = Theme.track
+        static let segmentActiveBg = Theme.surfaceRaised
+        static let green      = Theme.green
+        static let red        = Theme.red
+        static let voteUp     = Theme.voteUp
+        static let voteDown   = Theme.voteDown
+    }
 
     private let viewModel: PollDetailViewModel
     private var item: PollCardItem { viewModel.item }
-    init(item: PollCardItem) {
+    /// Live detail (Figma 481-24129) dùng nút Tăng/Giảm tông nhạt (tint mờ);
+    /// Home detail (481-23974) dùng nút đặc. Mặc định nút đặc.
+    private let softVoteButtons: Bool
+    init(item: PollCardItem, softVoteButtons: Bool = false) {
         self.viewModel = PollDetailViewModel(item: item)
+        self.softVoteButtons = softVoteButtons
         super.init(nibName: nil, bundle: nil)
     }
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
@@ -21,8 +44,7 @@ final class PollDetailViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        overrideUserInterfaceStyle = .dark
-        view.backgroundColor = FeelitColors.background
+        view.backgroundColor = L.pageBg
         setupScroll()
         buildContent()
         chart.yesSeries = viewModel.yesSeries
@@ -61,11 +83,11 @@ final class PollDetailViewController: UIViewController {
         content.addArrangedSubview(headerNav())
 
         // Category · cadence
-        let tag = label("\(item.category) · \(item.cadence)", 12, .light, 0xEDEDED)
+        let tag = label("\(item.category) · \(item.cadence)", 12, .light, 0x202020)
         content.addArrangedSubview(tag)
 
         // Title + icons
-        let title = label(item.title, 20, .medium, 0xEDEDED); title.numberOfLines = 0
+        let title = label(item.title, 20, .medium, 0x202020); title.numberOfLines = 0
         let share = iconButton("square.and.arrow.up")
         let save = iconButton("bookmark")
         let titleRow = UIStackView(arrangedSubviews: [title, save, share])
@@ -151,17 +173,26 @@ final class PollDetailViewController: UIViewController {
     }
 
     private func metricsRow() -> UIView {
-        let beat = metric(caption: "Giá cần vượt", value: item.currentPrice, valueHex: 0xEDEDED)
+        let beat = metric(caption: "Giá cần vượt", value: item.currentPrice, valueHex: 0x202020)
         let now = metric(caption: "Giá hiện tại", value: item.marketPrice,
                          valueHex: item.isUp ? 0x4CAF50 : 0xF44336)
-        let row = UIStackView(arrangedSubviews: [beat, now])
-        row.axis = .horizontal; row.spacing = 16; row.distribution = .fillEqually; row.alignment = .top
+        // Vạch ngăn dọc giữa hai chỉ số (Figma: stroke #B9B9B9).
+        let divider = UIView()
+        divider.backgroundColor = L.separator
+        divider.translatesAutoresizingMaskIntoConstraints = false
+        divider.widthAnchor.constraint(equalToConstant: 1).isActive = true
+        let row = UIStackView(arrangedSubviews: [beat, divider, now])
+        row.axis = .horizontal; row.spacing = 16; row.alignment = .fill
+        beat.widthAnchor.constraint(equalTo: now.widthAnchor).isActive = true
         return row
     }
 
     private func voteRow() -> UIView {
         let up = voteButton("Tăng", 0x74FF7A)
         let neutral = voteButton("Neutral", 0xFFFFFF)
+        // Nút Neutral trắng trên nền sáng cần viền để nhìn thấy.
+        neutral.layer.borderWidth = 1
+        neutral.layer.borderColor = L.divider.cgColor
         let down = voteButton("Giảm", 0xEF5350)
         let row = UIStackView(arrangedSubviews: [up, neutral, down])
         row.axis = .horizontal; row.spacing = 12; row.alignment = .fill
@@ -176,7 +207,7 @@ final class PollDetailViewController: UIViewController {
         let b = pill("Hoạt động", icon: "bolt", selected: false)
         let seg = UIStackView(arrangedSubviews: [a, b])
         seg.axis = .horizontal; seg.spacing = 0
-        seg.backgroundColor = UIColor(hex: 0x303030)
+        seg.backgroundColor = L.segmentBg
         seg.layer.cornerRadius = 9
         seg.isLayoutMarginsRelativeArrangement = true
         seg.layoutMargins = .init(top: 3, left: 3, bottom: 3, right: 3)
@@ -187,16 +218,16 @@ final class PollDetailViewController: UIViewController {
 
     private func commentInput() -> UIView {
         let box = UIView()
-        box.backgroundColor = FeelitColors.surface
+        box.backgroundColor = L.segmentActiveBg
         box.layer.cornerRadius = 16
         box.layer.borderWidth = 1
-        box.layer.borderColor = FeelitColors.border.cgColor
+        box.layer.borderColor = L.divider.cgColor
 
-        let placeholder = label("Bạn đang nghĩ gì?", 12, .regular, 0x606060)
-        let counter = label("800 ký tự", 11, .medium, 0x606060)
+        let placeholder = label("Bạn đang nghĩ gì?", 12, .regular, 0xB9B9B9)
+        let counter = label("800 ký tự", 11, .medium, 0xB9B9B9)
         var bcfg = UIButton.Configuration.filled()
-        bcfg.baseBackgroundColor = FeelitColors.primary
-        bcfg.baseForegroundColor = UIColor(hex: 0xFBFBFB)
+        bcfg.baseBackgroundColor = L.textPrimary
+        bcfg.baseForegroundColor = Theme.page
         bcfg.cornerStyle = .capsule
         bcfg.attributedTitle = AttributedString("Bình luận", attributes:
             AttributeContainer([.font: UIFont.systemFont(ofSize: 11, weight: .medium)]))
@@ -225,11 +256,11 @@ final class PollDetailViewController: UIViewController {
         avatar.configure(username: username)
         avatar.setContentHuggingPriority(.required, for: .horizontal)
 
-        let name = label(username, 16, .medium, 0xEDEDED)
+        let name = label(username, 16, .medium, 0x202020)
         let badge = PaddingLabel(insets: .init(top: 1, left: 8, bottom: 1, right: 8))
         badge.text = vote
         badge.font = .systemFont(ofSize: 11, weight: .medium)
-        badge.textColor = UIColor(hex: 0x111111)
+        badge.textColor = UIColor(hex: 0x4CAF50)
         badge.backgroundColor = UIColor(hex: 0x74FF7A)
         badge.layer.cornerRadius = 8
         badge.clipsToBounds = true
@@ -237,11 +268,11 @@ final class PollDetailViewController: UIViewController {
         let badgeRow = UIStackView(arrangedSubviews: [badge, UIView()])
         badgeRow.axis = .horizontal
 
-        let bodyLabel = label(body, 14, .regular, 0xEDEDED)
+        let bodyLabel = label(body, 14, .regular, 0x202020)
         bodyLabel.numberOfLines = 0
 
-        let timeLabel = label(time, 12, .regular, 0x606060)
-        let reply = label("Trả lời (\(replies))", 12, .regular, 0xB3B3B3)
+        let timeLabel = label(time, 12, .regular, 0xB9B9B9)
+        let reply = label("Trả lời (\(replies))", 12, .regular, 0x818181)
         let footer = UIStackView(arrangedSubviews: [timeLabel, reply, UIView()])
         footer.axis = .horizontal; footer.spacing = 12; footer.alignment = .center
 
@@ -260,14 +291,10 @@ final class PollDetailViewController: UIViewController {
         let l = PaddingLabel(insets: .init(top: 7, left: 12, bottom: 7, right: 12))
         l.text = text
         l.font = .systemFont(ofSize: 12, weight: .medium)
-        l.textColor = UIColor(hex: 0xEDEDED)
-        l.backgroundColor = selected ? UIColor(hex: 0x292929) : .clear
+        l.textColor = selected ? L.chipSelectedText : L.textPrimary
+        l.backgroundColor = selected ? L.chipSelected : .clear
         l.layer.cornerRadius = 16
         l.clipsToBounds = true
-        if !selected {
-            l.layer.borderWidth = 1
-            l.layer.borderColor = FeelitColors.border.cgColor
-        }
         l.setContentHuggingPriority(.required, for: .horizontal)
         return l
     }
@@ -275,11 +302,11 @@ final class PollDetailViewController: UIViewController {
     private func notifBell() -> UIView {
         let iv = UIImageView(image: UIImage(systemName: "bell",
             withConfiguration: UIImage.SymbolConfiguration(pointSize: 18, weight: .regular)))
-        iv.tintColor = UIColor(hex: 0x969696)
+        iv.tintColor = Theme.textSecondary
         iv.contentMode = .scaleAspectFit
         iv.translatesAutoresizingMaskIntoConstraints = false
         let dot = UIView()
-        dot.backgroundColor = UIColor(hex: 0xFE3333)
+        dot.backgroundColor = Theme.redDot
         dot.layer.cornerRadius = 3
         dot.translatesAutoresizingMaskIntoConstraints = false
         let wrap = UIView()
@@ -308,7 +335,7 @@ final class PollDetailViewController: UIViewController {
         swatch.translatesAutoresizingMaskIntoConstraints = false
         swatch.widthAnchor.constraint(equalToConstant: 6).isActive = true
         swatch.heightAnchor.constraint(equalToConstant: 6).isActive = true
-        let cap = label(caption, 12, .regular, 0xEDEDED)
+        let cap = label(caption, 12, .regular, 0x202020)
         let capRow = UIStackView(arrangedSubviews: [swatch, cap, UIView()])
         capRow.axis = .horizontal; capRow.spacing = 6; capRow.alignment = .center
         let val = label(value, 22, .semibold, valueHex)
@@ -320,17 +347,19 @@ final class PollDetailViewController: UIViewController {
     private func pill(_ text: String, icon: String, selected: Bool) -> UIView {
         let iv = UIImageView(image: UIImage(systemName: icon,
             withConfiguration: UIImage.SymbolConfiguration(pointSize: 12, weight: .regular)))
-        iv.tintColor = UIColor(hex: selected ? 0xEDEDED : 0x525252)
+        iv.tintColor = selected ? Theme.textPrimary : Theme.textSecondary
         iv.contentMode = .scaleAspectFit
         iv.setContentHuggingPriority(.required, for: .horizontal)
-        let l = label(text, 13, .medium, selected ? 0xEDEDED : 0xB3B3B3)
+        let l = label(text, 13, .medium, selected ? 0x202020 : 0x818181)
         let row = UIStackView(arrangedSubviews: [iv, l])
         row.axis = .horizontal; row.spacing = 6; row.alignment = .center
         row.isLayoutMarginsRelativeArrangement = true
         row.layoutMargins = .init(top: 6, left: 14, bottom: 6, right: 14)
         if selected {
-            row.backgroundColor = UIColor(hex: 0x111111)
+            row.backgroundColor = L.segmentActiveBg
             row.layer.cornerRadius = 7
+            row.layer.borderWidth = 1
+            row.layer.borderColor = L.divider.cgColor
         }
         return row
     }
@@ -339,15 +368,26 @@ final class PollDetailViewController: UIViewController {
         let l = UILabel()
         l.text = text
         l.font = .systemFont(ofSize: size, weight: weight)
-        l.textColor = UIColor(hex: hex)
+        l.textColor = Self.adaptiveColor(hex)
         l.translatesAutoresizingMaskIntoConstraints = false
         return l
+    }
+
+    /// Ánh xạ các hex trung tính (nền/chữ) sang màu adaptive; màu nhấn giữ nguyên.
+    static func adaptiveColor(_ hex: UInt32) -> UIColor {
+        switch hex {
+        case 0x202020, 0x121212: return Theme.textPrimary
+        case 0x818181, 0x969696, 0x525252: return Theme.textSecondary
+        case 0xB9B9B9:           return Theme.textTertiary
+        case 0xCCCCCC:           return Theme.borderStrong
+        default:                 return UIColor(hex: hex)
+        }
     }
 
     private func iconButton(_ icon: String) -> UIButton {
         var c = UIButton.Configuration.plain()
         c.image = UIImage(systemName: icon, withConfiguration: UIImage.SymbolConfiguration(pointSize: 16, weight: .regular))
-        c.baseForegroundColor = FeelitColors.textPrimary
+        c.baseForegroundColor = L.icon
         c.contentInsets = .zero
         let b = UIButton(configuration: c)
         b.translatesAutoresizingMaskIntoConstraints = false
@@ -356,8 +396,15 @@ final class PollDetailViewController: UIViewController {
 
     private func voteButton(_ title: String, _ color: UInt32) -> UIButton {
         var c = UIButton.Configuration.filled()
-        c.baseBackgroundColor = UIColor(hex: color)
-        c.baseForegroundColor = UIColor(hex: 0x111111)
+        if softVoteButtons {
+            // Live detail (Figma 481-24129): nền tint 32%, chữ theo màu xanh/đỏ.
+            c.baseBackgroundColor = UIColor(hex: color, alpha: 0.32)
+            let textHex: UInt32 = color == 0x74FF7A ? 0x4CAF50 : (color == 0xEF5350 ? 0xF44336 : 0x202020)
+            c.baseForegroundColor = UIColor(hex: textHex)
+        } else {
+            c.baseBackgroundColor = UIColor(hex: color)
+            c.baseForegroundColor = UIColor(hex: 0x202020)
+        }
         c.cornerStyle = .large
         c.attributedTitle = AttributedString(title, attributes:
             AttributeContainer([.font: UIFont.systemFont(ofSize: 16, weight: .semibold)]))
@@ -383,8 +430,8 @@ final class CollapsibleSection: UIView {
         let titleLabel = UILabel()
         titleLabel.text = title
         titleLabel.font = .systemFont(ofSize: 14, weight: .regular)
-        titleLabel.textColor = FeelitColors.textPrimary
-        chevron.tintColor = FeelitColors.textSecondary
+        titleLabel.textColor = Theme.textPrimary
+        chevron.tintColor = Theme.textPrimary
         chevron.contentMode = .scaleAspectFit
 
         let header = UIStackView(arrangedSubviews: [titleLabel, UIView(), chevron])
@@ -396,7 +443,7 @@ final class CollapsibleSection: UIView {
         body.text = bodyText
         body.numberOfLines = 0
         body.font = .systemFont(ofSize: 13, weight: .regular)
-        body.textColor = FeelitColors.textSecondary
+        body.textColor = Theme.textPrimary
         body.isHidden = !expanded
 
         let stack = UIStackView(arrangedSubviews: [header, body])
@@ -413,7 +460,7 @@ final class CollapsibleSection: UIView {
         ])
         updateChevron()
 
-        let top = UIView(); top.backgroundColor = FeelitColors.border
+        let top = UIView(); top.backgroundColor = Theme.borderStrong
         top.translatesAutoresizingMaskIntoConstraints = false
         addSubview(top)
         NSLayoutConstraint.activate([

@@ -5,8 +5,6 @@ import UIKit
 /// Header: chip chủ đề + ô tìm kiếm. Bấm thẻ → màn chi tiết.
 final class PollFeedViewController: UIViewController {
 
-    override var preferredStatusBarStyle: UIStatusBarStyle { .lightContent }
-
     private let viewModel = PollFeedViewModel()
     private var categories: [String] { viewModel.categories }
     private var selectedCategory: String { viewModel.selectedCategory }
@@ -19,14 +17,14 @@ final class PollFeedViewController: UIViewController {
 
     private let searchField: UITextField = {
         let tf = UITextField()
-        tf.backgroundColor = FeelitColors.surfaceElevated
+        tf.backgroundColor = Theme.track
         tf.layer.cornerRadius = 12
         tf.font = .systemFont(ofSize: 14, weight: .regular)
-        tf.textColor = FeelitColors.textPrimary
+        tf.textColor = Theme.textPrimary
         tf.attributedPlaceholder = NSAttributedString(string: "Tìm kiếm...",
-            attributes: [.foregroundColor: FeelitColors.textPrimary.withAlphaComponent(0.6)])
+            attributes: [.foregroundColor: Theme.textTertiary])
         let icon = UIImageView(image: UIImage(systemName: "magnifyingglass"))
-        icon.tintColor = FeelitColors.textPrimary.withAlphaComponent(0.6)
+        icon.tintColor = Theme.textSecondary
         let left = UIView(frame: CGRect(x: 0, y: 0, width: 40, height: 44))
         icon.frame = CGRect(x: 12, y: 12, width: 20, height: 20)
         left.addSubview(icon)
@@ -41,7 +39,7 @@ final class PollFeedViewController: UIViewController {
         layout.minimumLineSpacing = 0
         layout.scrollDirection = .vertical
         let cv = UICollectionView(frame: .zero, collectionViewLayout: layout)
-        cv.backgroundColor = FeelitColors.background
+        cv.backgroundColor = Theme.page
         cv.isPagingEnabled = true
         cv.showsVerticalScrollIndicator = false
         cv.contentInsetAdjustmentBehavior = .never
@@ -54,7 +52,7 @@ final class PollFeedViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = FeelitColors.background
+        view.backgroundColor = Theme.page
         setupHeader()
         setupCollection()
     }
@@ -72,7 +70,7 @@ final class PollFeedViewController: UIViewController {
             var config = UIButton.Configuration.plain()
             config.attributedTitle = AttributedString(c, attributes:
                 AttributeContainer([.font: UIFont.systemFont(ofSize: 14, weight: .regular)]))
-            config.baseForegroundColor = FeelitColors.textPrimary
+            config.baseForegroundColor = Theme.textPrimary
             config.contentInsets = .init(top: 6, leading: 14, bottom: 6, trailing: 14)
             let b = UIButton(configuration: config)
             b.tag = i
@@ -126,7 +124,10 @@ final class PollFeedViewController: UIViewController {
 
     private func updateChipStyles() {
         for (i, b) in chipButtons.enumerated() {
-            b.backgroundColor = categories[i] == selectedCategory ? UIColor(hex: 0x292929) : .clear
+            let selected = categories[i] == selectedCategory
+            b.backgroundColor = selected ? Theme.textPrimary : .clear
+            // Chữ sáng trên viên đã chọn (nền tối), chữ tối khi chưa chọn (nền trắng).
+            b.configuration?.baseForegroundColor = selected ? Theme.page : Theme.textPrimary
         }
     }
 

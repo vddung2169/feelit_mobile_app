@@ -18,11 +18,16 @@ final class SectionHeaderView: UICollectionReusableView {
 
     private func setup() {
         titleLabel.font = FeelitFonts.heading
-        titleLabel.textColor = FeelitColors.textPrimary
+        // Thích ứng theme: chữ tối trên màn sáng (Explore), chữ sáng trên màn tối (Feed).
+        titleLabel.textColor = UIColor { tc in
+            tc.userInterfaceStyle == .dark ? FeelitColors.textPrimary : UIColor(hex: 0x202020)
+        }
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
 
         actionButton.setTitle("Xem tất cả", for: .normal)
-        actionButton.setTitleColor(FeelitColors.textSecondary, for: .normal)
+        actionButton.setTitleColor(UIColor { tc in
+            tc.userInterfaceStyle == .dark ? FeelitColors.textSecondary : UIColor(hex: 0x818181)
+        }, for: .normal)
         actionButton.titleLabel?.font = FeelitFonts.caption
         actionButton.translatesAutoresizingMaskIntoConstraints = false
         actionButton.addTarget(self, action: #selector(actionTapped), for: .touchUpInside)

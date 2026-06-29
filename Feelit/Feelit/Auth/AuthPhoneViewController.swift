@@ -90,12 +90,12 @@ final class AuthPhoneViewController: AuthFormViewController {
         let display  = "\(country.dialCode) \(national)"    // bản hiển thị: "+84 987654321"
 
         if let ctx = finalContext {
-            // Bước cuối: gắn SĐT + hoàn tất đăng ký.
+            // Bước cuối: gắn SĐT → sang màn OTP xác thực SĐT (mã sẽ gửi qua SMS;
+            // hiện dùng mã giả lập 123456). Verify xong mới hoàn tất đăng ký.
             ctx.phone = apiPhone
             ctx.phoneDisplay = display
-            setLoading(true)
-            viewModel.completeRegistration(userId: ctx.userId, email: ctx.email,
-                                           phone: ctx.phone, password: ctx.password)
+            navigationController?.pushViewController(
+                AuthOTPViewController(finalPhoneRegistration: ctx), animated: true)
         } else if isRegister {
             // Bước đầu đăng ký bằng SĐT: gửi OTP.
             let ctx = RegistrationContext(primaryChannel: "sms")
@@ -129,18 +129,8 @@ final class AuthPhoneViewController: AuthFormViewController {
             .store(in: &cancellables)
 
         if finalContext != nil {
-            // Đăng ký bước cuối (SĐT) → hoàn tất → màn "Đăng ký thành công!".
-            viewModel.$didCompleteAuth
-                .receive(on: DispatchQueue.main)
-                .filter { $0 }
-                .sink { [weak self] _ in
-                    guard let self, let ctx = self.finalContext else { return }
-                    self.navigationController?.pushViewController(
-                        AuthSuccessViewController(email: ctx.email ?? ctx.phoneDisplay ?? "",
-                                                  title: "Đăng ký thành công!"),
-                        animated: true)
-                }
-                .store(in: &cancellables)
+            // Bước cuối (SĐT) điều hướng thẳng sang màn OTP trong didTapContinue;
+            // việc hoàn tất đăng ký + màn "Đăng ký thành công!" do màn OTP đảm nhiệm.
         } else if isRegister {
             // Đăng ký bước đầu (SĐT) → gửi OTP xong → màn xác nhận.
             viewModel.$registrationUserId

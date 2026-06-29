@@ -28,8 +28,8 @@ final class DetailLineChartView: UIView {
                           width: bounds.width - leftPad - 6,
                           height: bounds.height - topPad - bottomPad)
 
-        // Lưới ngang + nhãn trục Y
-        let gridColor = UIColor(hex: 0xFFFFFF, alpha: 0.08)
+        // Lưới ngang + nhãn trục Y (Figma light: #E8E8E8)
+        let gridColor = UIColor(hex: 0xE8E8E8)
         let labelAttrs: [NSAttributedString.Key: Any] = [
             .font: UIFont.systemFont(ofSize: 8, weight: .regular),
             .foregroundColor: UIColor(hex: 0xA3A3A3),

@@ -119,6 +119,7 @@ final class AuthOTPViewController: UIViewController {
     private let contact: String      // email hoặc SĐT (đã định dạng để hiển thị)
     private let channel: String      // "email" | "sms"
     private let registrationContext: RegistrationContext?  // != nil → xác minh cho đăng ký
+    private let finalPhoneContext: RegistrationContext?     // != nil → xác minh SĐT bước cuối → hoàn tất đăng ký
     private let phoneLoginUserId: String?                  // != nil → xác minh cho đăng nhập SĐT
     private let resendSeconds = 60
 
@@ -130,6 +131,7 @@ final class AuthOTPViewController: UIViewController {
         self.contact = contact
         self.channel = channel
         self.registrationContext = nil
+        self.finalPhoneContext = nil
         self.phoneLoginUserId = nil
         self.viewModel = AuthViewModel(pendingUserId: userId, otpChannel: channel)
         super.init(nibName: nil, bundle: nil)
@@ -139,6 +141,17 @@ final class AuthOTPViewController: UIViewController {
         self.contact = context.email ?? context.phoneDisplay ?? ""
         self.channel = context.primaryChannel
         self.registrationContext = context
+        self.finalPhoneContext = nil
+        self.phoneLoginUserId = nil
+        self.viewModel = AuthViewModel()
+        super.init(nibName: nil, bundle: nil)
+    }
+    /// Xác minh OTP cho SĐT ở bước cuối của đăng ký bằng email — verify xong → hoàn tất đăng ký.
+    init(finalPhoneRegistration context: RegistrationContext) {
+        self.contact = context.phoneDisplay ?? ""
+        self.channel = "sms"
+        self.registrationContext = nil
+        self.finalPhoneContext = context
         self.phoneLoginUserId = nil
         self.viewModel = AuthViewModel()
         super.init(nibName: nil, bundle: nil)
@@ -148,6 +161,7 @@ final class AuthOTPViewController: UIViewController {
         self.contact = displayPhone
         self.channel = "sms"
         self.registrationContext = nil
+        self.finalPhoneContext = nil
         self.phoneLoginUserId = userId
         self.viewModel = AuthViewModel(pendingUserId: userId, otpChannel: "sms")
         super.init(nibName: nil, bundle: nil)
@@ -271,25 +285,38 @@ final class AuthOTPViewController: UIViewController {
             .sink { [weak self] _ in
                 guard let self else { return }
                 self.view.endEditing(true)
-                // Đăng nhập bằng SĐT → vào thẳng app; flow cũ → onboarding.
+                // Đăng nhập bằng SĐT → vào thẳng app; hoàn tất đăng ký bằng SĐT → onboarding.
                 let isLogin = self.phoneLoginUserId != nil
                 self.navigationController?.pushViewController(
                     AuthSuccessViewController(email: self.contact,
-                                              title: "Đăng nhập thành công!",
+                                              title: isLogin ? "Đăng nhập thành công!" : "Đăng ký thành công!",
                                               destination: isLogin ? .mainApp : .onboarding),
                     animated: true)
             }
             .store(in: &cancellables)
 
-        // Flow đăng ký: xác minh OTP xong → sang màn nhập mật khẩu (chưa đăng nhập).
+        // Flow đăng ký: xác minh OTP xong.
+        //  • Bước cuối (SĐT) → hoàn tất đăng ký → màn "Đăng ký thành công!".
+        //  • Bước đầu bằng email → sang màn nhập mật khẩu (chưa đăng nhập).
+        //  • Bước đầu bằng SĐT  → hoàn tất đăng ký luôn (flow rút gọn, nếu dùng).
         viewModel.$registrationOTPVerified
             .receive(on: DispatchQueue.main)
             .filter { $0 }
             .sink { [weak self] _ in
-                guard let self, let ctx = self.registrationContext else { return }
+                guard let self else { return }
                 self.view.endEditing(true)
-                self.navigationController?.pushViewController(
-                    AuthPasswordViewController(registration: ctx), animated: true)
+                if let ctx = self.finalPhoneContext {
+                    self.viewModel.completeRegistration(userId: ctx.userId, email: ctx.email,
+                                                        phone: ctx.phone, password: ctx.password)
+                } else if let ctx = self.registrationContext {
+                    if ctx.primaryChannel == "sms" {
+                        self.viewModel.completeRegistration(userId: ctx.userId, email: ctx.email,
+                                                            phone: ctx.phone, password: ctx.password)
+                    } else {
+                        self.navigationController?.pushViewController(
+                            AuthPasswordViewController(registration: ctx), animated: true)
+                    }
+                }
             }
             .store(in: &cancellables)
     }
@@ -365,6 +392,8 @@ final class AuthOTPViewController: UIViewController {
     private func verify(_ code: String) {
         view.endEditing(true)
         if let ctx = registrationContext {
+            viewModel.verifyRegistrationOTP(userId: ctx.userId, code: code)
+        } else if let ctx = finalPhoneContext {
             viewModel.verifyRegistrationOTP(userId: ctx.userId, code: code)
         } else if let uid = phoneLoginUserId {
             viewModel.verifyPhoneLoginOTP(userId: uid, code: code)
