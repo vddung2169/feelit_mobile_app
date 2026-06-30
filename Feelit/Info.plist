@@ -2,6 +2,16 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<!-- AppsFlyer config: thay placeholder bằng giá trị thật.
+	     Dev Key lấy ở AppsFlyer dashboard, Apple App ID ở App Store Connect.
+	     Đọc qua Bundle.main (xem AppDelegate) — KHÔNG hardcode trong code. -->
+	<key>AppsFlyerDevKey</key>
+	<string>YOUR_APPSFLYER_DEV_KEY</string>
+	<key>AppsFlyerAppleAppID</key>
+	<string>YOUR_APPLE_APP_ID</string>
+	<!-- ATT: mô tả lý do xin quyền theo dõi (hiển thị trong prompt hệ thống). -->
+	<key>NSUserTrackingUsageDescription</key>
+	<string>Feelit dùng thông tin này để đo lường hiệu quả quảng cáo và mang lại nội dung phù hợp hơn với bạn.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

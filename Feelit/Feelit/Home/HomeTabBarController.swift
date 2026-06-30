@@ -10,6 +10,7 @@ final class HomeTabBarController: UITabBarController {
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = Theme.page
+        delegate = self
         setupTabs()
         styleTabBar()
     }
@@ -48,11 +49,8 @@ final class HomeTabBarController: UITabBarController {
         }
 
         // Role search → iOS 26 tách thành nút kính tròn riêng bên phải.
-        let searchTab = UISearchTab { _ in
-            let nav = UINavigationController(rootViewController: ExploreViewController())
-            nav.isNavigationBarHidden = true
-            return nav
-        }
+        // Tạm thời chưa route sang màn nào: bấm vào không chuyển màn (xem delegate bên dưới).
+        let searchTab = UISearchTab { _ in UIViewController() }
 
         tabs = [pollTab, liveTab, ideasTab, profileTab, searchTab]
     }
@@ -71,6 +69,14 @@ final class HomeTabBarController: UITabBarController {
             tabBar.standardAppearance = appearance
             tabBar.scrollEdgeAppearance = appearance
         }
+    }
+}
+
+// MARK: - UITabBarControllerDelegate
+extension HomeTabBarController: UITabBarControllerDelegate {
+    /// Bấm nút Search (UISearchTab) tạm thời không chuyển màn — giữ nguyên tab hiện tại.
+    func tabBarController(_ tabBarController: UITabBarController, shouldSelectTab tab: UITab) -> Bool {
+        !(tab is UISearchTab)
     }
 }
 

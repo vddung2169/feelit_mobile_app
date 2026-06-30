@@ -1,6 +1,15 @@
 {
-  "originHash" : "95d26df518f25802c8782300581011b8eafe521f7ab32e3995e57dccf6e16b58",
+  "originHash" : "43b8c583f49b458332be651e4deb938c7da636922144714138246a17c8915cf1",
   "pins" : [
+    {
+      "identity" : "appsflyerframework-static",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/AppsFlyerSDK/AppsFlyerFramework-Static",
+      "state" : {
+        "revision" : "8b763045b2a788e3fd59f1bde7b74d130286da27",
+        "version" : "6.18.1"
+      }
+    },
     {
       "identity" : "starscream",
       "kind" : "remoteSourceControl",

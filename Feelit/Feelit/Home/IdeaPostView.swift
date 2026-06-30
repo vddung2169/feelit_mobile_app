@@ -166,10 +166,10 @@ final class IdeaPollCardView: ThemeCardView {
         self.onTap = onTap
         super.init(frame: .zero)
         translatesAutoresizingMaskIntoConstraints = false
-        backgroundColor = Theme.track
+        backgroundColor = Theme.card
         layer.cornerRadius = 12
         layer.borderWidth = 1
-        borderUIColor = Theme.borderStrong
+        borderUIColor = Theme.border
 
         let tag = IdeaUI.label(poll.tag, 11, .light, 0x202020)
         let title = IdeaUI.label(poll.title, 14, .regular, 0x202020)
@@ -264,10 +264,10 @@ final class IdeaQuoteView: ThemeCardView {
     init(quote: IdeaQuote) {
         super.init(frame: .zero)
         translatesAutoresizingMaskIntoConstraints = false
-        backgroundColor = Theme.track
+        backgroundColor = Theme.card
         layer.cornerRadius = 12
         layer.borderWidth = 1
-        borderUIColor = Theme.borderStrong
+        borderUIColor = Theme.border
 
         let avatar = IdeaUI.avatar(quote.username, size: 24, corner: 6, fontSize: 11)
         let name = IdeaUI.label(quote.username, 14, .medium, 0x202020)

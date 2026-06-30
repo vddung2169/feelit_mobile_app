@@ -89,8 +89,10 @@ final class ProfileSettingsViewController: UIViewController {
 
         stack.addArrangedSubview(sectionLabel("QUYỀN RIÊNG TƯ"))
         stack.addArrangedSubview(card([
-            Row(icon: "lock.fill", title: "Quyền riêng tư", subtitle: "Hồ sơ, lịch sử dự đoán, số liệu"),
-            Row(icon: "shield.fill", title: "Bảo mật", subtitle: "Mật khẩu, xác thực 2 bước"),
+            Row(icon: "lock.fill", title: "Quyền riêng tư", subtitle: "Hồ sơ, lịch sử dự đoán, số liệu",
+                action: { [weak self] in self?.openPrivacy() }),
+            Row(icon: "shield.fill", title: "Bảo mật", subtitle: "Mật khẩu, xác thực 2 bước",
+                action: { [weak self] in self?.openSecurity() }),
         ]))
 
         stack.addArrangedSubview(sectionLabel("THÔNG BÁO"))
@@ -110,7 +112,8 @@ final class ProfileSettingsViewController: UIViewController {
         stack.addArrangedSubview(card([
             Row(icon: "questionmark.circle.fill", title: "Trợ giúp & phản hồi", subtitle: nil),
             Row(icon: "doc.text.fill", title: "Điều khoản sử dụng", subtitle: nil),
-            Row(icon: "hand.raised.fill", title: "Chính sách quyền riêng tư", subtitle: nil),
+            Row(icon: "hand.raised.fill", title: "Chính sách quyền riêng tư", subtitle: nil,
+                action: { [weak self] in self?.openPrivacy() }),
         ]))
 
         stack.addArrangedSubview(sectionLabel("TÀI KHOẢN"))
@@ -149,6 +152,14 @@ final class ProfileSettingsViewController: UIViewController {
 
     private func openNotifications() {
         navigationController?.pushViewController(NotificationSettingsViewController(), animated: true)
+    }
+
+    private func openPrivacy() {
+        navigationController?.pushViewController(PrivacySettingsViewController(), animated: true)
+    }
+
+    private func openSecurity() {
+        navigationController?.pushViewController(SecuritySettingsViewController(), animated: true)
     }
 
     // MARK: Section card (rows + dividers)

@@ -42,6 +42,10 @@ final class PollDetailViewController: UIViewController {
     private let content = UIStackView()
     private let chart = DetailLineChartView()
 
+    /// Trạng thái lưu (bookmark) của poll này + nút để cập nhật icon.
+    private var isSaved = false
+    private weak var saveButton: UIButton?
+
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = L.pageBg
@@ -67,18 +71,15 @@ final class PollDetailViewController: UIViewController {
             scroll.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             scroll.bottomAnchor.constraint(equalTo: view.bottomAnchor),
 
-            content.topAnchor.constraint(equalTo: scroll.topAnchor, constant: 8),
+            content.topAnchor.constraint(equalTo: scroll.contentLayoutGuide.topAnchor, constant: 8),
             content.leadingAnchor.constraint(equalTo: scroll.leadingAnchor, constant: 20),
             content.trailingAnchor.constraint(equalTo: scroll.trailingAnchor, constant: -20),
-            content.bottomAnchor.constraint(equalTo: scroll.bottomAnchor),
+            content.bottomAnchor.constraint(equalTo: scroll.contentLayoutGuide.bottomAnchor),
             content.widthAnchor.constraint(equalTo: scroll.widthAnchor, constant: -40),
         ])
     }
 
     private func buildContent() {
-        // Top: chip danh mục + tìm kiếm
-        content.addArrangedSubview(topChips())
-
         // Header navigation: ‹ Trở lại  |  chuông thông báo
         content.addArrangedSubview(headerNav())
 
@@ -88,12 +89,19 @@ final class PollDetailViewController: UIViewController {
 
         // Title + icons
         let title = label(item.title, 20, .medium, 0x202020); title.numberOfLines = 0
+        // Tiêu đề dài thì xuống dòng, nhường chỗ cho 2 icon (không bị đè/chen icon).
+        title.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         let share = iconButton("square.and.arrow.up")
         let save = iconButton("bookmark")
+        saveButton = save
+        save.addAction(UIAction { [weak self] _ in self?.toggleSave() }, for: .touchUpInside)
+        share.addAction(UIAction { [weak self, weak share] _ in self?.presentShare(from: share) }, for: .touchUpInside)
         let titleRow = UIStackView(arrangedSubviews: [title, save, share])
         titleRow.axis = .horizontal; titleRow.spacing = 12; titleRow.alignment = .top
-        save.setContentHuggingPriority(.required, for: .horizontal)
-        share.setContentHuggingPriority(.required, for: .horizontal)
+        for icon in [save, share] {
+            icon.setContentHuggingPriority(.required, for: .horizontal)
+            icon.setContentCompressionResistancePriority(.required, for: .horizontal)
+        }
         content.addArrangedSubview(titleRow)
         content.setCustomSpacing(8, after: tag)
 
@@ -130,45 +138,16 @@ final class PollDetailViewController: UIViewController {
     }
 
     // MARK: Sections
-    private func topChips() -> UIView {
-        let row = UIStackView()
-        row.axis = .horizontal; row.spacing = 8; row.alignment = .center
-        row.translatesAutoresizingMaskIntoConstraints = false
-        for (i, c) in PollFeedData.categories.enumerated() {
-            row.addArrangedSubview(chip(c, selected: i == selectedCategoryIndex))
-        }
-        let scroll = UIScrollView()
-        scroll.showsHorizontalScrollIndicator = false
-        scroll.translatesAutoresizingMaskIntoConstraints = false
-        scroll.addSubview(row)
-        NSLayoutConstraint.activate([
-            row.topAnchor.constraint(equalTo: scroll.topAnchor),
-            row.bottomAnchor.constraint(equalTo: scroll.bottomAnchor),
-            row.leadingAnchor.constraint(equalTo: scroll.leadingAnchor),
-            row.trailingAnchor.constraint(equalTo: scroll.trailingAnchor),
-            row.heightAnchor.constraint(equalTo: scroll.heightAnchor),
-            scroll.heightAnchor.constraint(equalToConstant: 32),
-        ])
-        let search = iconButton("magnifyingglass")
-        search.setContentHuggingPriority(.required, for: .horizontal)
-        search.setContentCompressionResistancePriority(.required, for: .horizontal)
-        let h = UIStackView(arrangedSubviews: [scroll, search])
-        h.axis = .horizontal; h.spacing = 10; h.alignment = .center
-        return h
-    }
-
-    private var selectedCategoryIndex: Int {
-        PollFeedData.categories.firstIndex(of: item.category) ?? 0
-    }
-
     private func headerNav() -> UIView {
         let back = AuthUI.backButton(target: self, action: #selector(backTapped))
-        let bell1 = notifBell()
-        let bell2 = notifBell()
-        let row = UIStackView(arrangedSubviews: [back, UIView(), bell1, bell2])
+        // Màn chi tiết là adaptive (AuthUI dùng màu cố định cho flow Auth luôn sáng),
+        // nên đổi màu nút Back sang adaptive để không bị tối ở dark mode (Figma 336-11893).
+        back.configuration?.baseForegroundColor = Theme.textPrimary
+        back.tintColor = Theme.textPrimary
+        let bell = notifBell()
+        let row = UIStackView(arrangedSubviews: [back, UIView(), bell])
         row.axis = .horizontal; row.spacing = 12; row.alignment = .center
-        bell1.setContentHuggingPriority(.required, for: .horizontal)
-        bell2.setContentHuggingPriority(.required, for: .horizontal)
+        bell.setContentHuggingPriority(.required, for: .horizontal)
         return row
     }
 
@@ -189,16 +168,10 @@ final class PollDetailViewController: UIViewController {
 
     private func voteRow() -> UIView {
         let up = voteButton("Tăng", 0x74FF7A)
-        let neutral = voteButton("Neutral", 0xFFFFFF)
-        // Nút Neutral trắng trên nền sáng cần viền để nhìn thấy.
-        neutral.layer.borderWidth = 1
-        neutral.layer.borderColor = L.divider.cgColor
         let down = voteButton("Giảm", 0xEF5350)
-        let row = UIStackView(arrangedSubviews: [up, neutral, down])
-        row.axis = .horizontal; row.spacing = 12; row.alignment = .fill
-        up.heightAnchor.constraint(equalToConstant: 48).isActive = true
-        neutral.widthAnchor.constraint(equalToConstant: 96).isActive = true
-        up.widthAnchor.constraint(equalTo: down.widthAnchor).isActive = true
+        let row = UIStackView(arrangedSubviews: [up, down])
+        row.axis = .horizontal; row.spacing = 12; row.distribution = .fillEqually
+        up.heightAnchor.constraint(equalToConstant: 40).isActive = true
         return row
     }
 
@@ -287,18 +260,6 @@ final class PollDetailViewController: UIViewController {
     }
 
     // MARK: Helpers
-    private func chip(_ text: String, selected: Bool) -> UIView {
-        let l = PaddingLabel(insets: .init(top: 7, left: 12, bottom: 7, right: 12))
-        l.text = text
-        l.font = .systemFont(ofSize: 12, weight: .medium)
-        l.textColor = selected ? L.chipSelectedText : L.textPrimary
-        l.backgroundColor = selected ? L.chipSelected : .clear
-        l.layer.cornerRadius = 16
-        l.clipsToBounds = true
-        l.setContentHuggingPriority(.required, for: .horizontal)
-        return l
-    }
-
     private func notifBell() -> UIView {
         let iv = UIImageView(image: UIImage(systemName: "bell",
             withConfiguration: UIImage.SymbolConfiguration(pointSize: 18, weight: .regular)))
@@ -396,22 +357,48 @@ final class PollDetailViewController: UIViewController {
 
     private func voteButton(_ title: String, _ color: UInt32) -> UIButton {
         var c = UIButton.Configuration.filled()
+        c.background.cornerRadius = 12
+        c.cornerStyle = .fixed
+        // Nền tint nhạt 32% (Tăng/Giảm) hoặc trắng mờ (Neutral) — Figma 481-23974.
+        c.baseBackgroundColor = color == 0xFFFFFF ? Theme.voteNeutral : UIColor(hex: color, alpha: 0.32)
         if softVoteButtons {
-            // Live detail (Figma 481-24129): nền tint 32%, chữ theo màu xanh/đỏ.
-            c.baseBackgroundColor = UIColor(hex: color, alpha: 0.32)
-            let textHex: UInt32 = color == 0x74FF7A ? 0x4CAF50 : (color == 0xEF5350 ? 0xF44336 : 0x202020)
-            c.baseForegroundColor = UIColor(hex: textHex)
+            // Live detail (Figma 481-24129): chữ theo màu xanh/đỏ.
+            c.baseForegroundColor = color == 0x74FF7A ? Theme.green
+                : (color == 0xEF5350 ? Theme.red : Theme.textPrimary)
         } else {
-            c.baseBackgroundColor = UIColor(hex: color)
-            c.baseForegroundColor = UIColor(hex: 0x202020)
+            // Home detail (Figma 481-23974): chữ tối.
+            c.baseForegroundColor = Theme.textPrimary
         }
-        c.cornerStyle = .large
         c.attributedTitle = AttributedString(title, attributes:
             AttributeContainer([.font: UIFont.systemFont(ofSize: 16, weight: .semibold)]))
         return UIButton(configuration: c)
     }
 
     @objc private func backTapped() { navigationController?.popViewController(animated: true) }
+
+    // MARK: Actions cho 2 icon ở hàng tiêu đề
+
+    /// Lưu / bỏ lưu poll: đổi icon bookmark ↔ bookmark.fill (tô xanh khi đã lưu) + haptic.
+    private func toggleSave() {
+        isSaved.toggle()
+        UISelectionFeedbackGenerator().selectionChanged()
+        guard let b = saveButton else { return }
+        var c = b.configuration
+        c?.image = UIImage(systemName: isSaved ? "bookmark.fill" : "bookmark",
+            withConfiguration: UIImage.SymbolConfiguration(pointSize: 16, weight: .regular))
+        c?.baseForegroundColor = isSaved ? Theme.green : L.icon
+        b.configuration = c
+    }
+
+    /// Chia sẻ poll qua share sheet hệ thống (tiêu đề + link).
+    private func presentShare(from source: UIView?) {
+        let link = URL(string: "https://feelit.vn/poll/\(item.id)")!
+        let activity = UIActivityViewController(activityItems: [item.title, link], applicationActivities: nil)
+        // iPad: neo popover vào icon share.
+        activity.popoverPresentationController?.sourceView = source
+        activity.popoverPresentationController?.sourceRect = source?.bounds ?? .zero
+        present(activity, animated: true)
+    }
 }
 
 // MARK: - CollapsibleSection

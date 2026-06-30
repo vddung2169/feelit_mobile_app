@@ -1,5 +1,6 @@
 import UIKit
 import UserNotifications
+import AppsFlyerLib
 
 @main
 class AppDelegate: UIResponder, UIApplicationDelegate {
@@ -10,7 +11,32 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     ) -> Bool {
         UNUserNotificationCenter.current().delegate = self
         NotificationManager.shared.requestAuthorizationAndRegister()
+        configureAppsFlyer()
         return true
+    }
+
+    // MARK: - AppsFlyer
+    /// CHỈ cấu hình ở đây (không start). `start()` được gọi trong
+    /// `SceneDelegate.sceneDidBecomeActive` vì app dùng scene-based lifecycle.
+    private func configureAppsFlyer() {
+        let af = AppsFlyerLib.shared()
+        // Dev Key & Apple App ID đọc từ Info.plist (không hardcode trong code).
+        af.appsFlyerDevKey = infoValue("AppsFlyerDevKey")
+        af.appleAppID = infoValue("AppsFlyerAppleAppID")
+        #if DEBUG
+        af.isDebug = true
+        #endif
+        // Chờ kết quả ATT (tối đa 60s) trước khi gửi dữ liệu attribution — để kịp lấy IDFA.
+        af.waitForATTUserAuthorization(timeoutInterval: 60)
+        // Gắn sẵn Customer User ID nếu đã đăng nhập (trước khi start chạy ở scene).
+        if let userId = TokenStore.shared.currentUserId {
+            af.customerUserID = userId
+        }
+    }
+
+    /// Đọc 1 chuỗi cấu hình từ Info.plist.
+    private func infoValue(_ key: String) -> String {
+        (Bundle.main.object(forInfoDictionaryKey: key) as? String) ?? ""
     }
 
     func application(
@@ -28,6 +54,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     ) {
         let token = deviceToken.map { String(format: "%02x", $0) }.joined()
         print("📱 APNs device token: \(token)")
+        // AppsFlyer: bật đo gỡ cài đặt (uninstall) qua APNs token.
+        AppsFlyerLib.shared().registerUninstall(deviceToken)
         APIClient.shared.registerDevice(
             userId: NotificationCoordinator.shared.currentUserId,
             token: token, platform: "ios"

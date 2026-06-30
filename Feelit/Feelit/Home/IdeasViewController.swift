@@ -83,10 +83,25 @@ final class IdeasViewController: UIViewController {
     private var selectedTab = 0
     private var tabButtons: [UIButton] = []
     private var underline: UIView?
+    private var underlineConstraints: [NSLayoutConstraint] = []
 
     private let tabsRow = UIStackView()
     private let scroll = UIScrollView()
     private let list = UIStackView()
+
+    /// Header nổi dùng Liquid Glass (iOS 26+) / vật liệu mờ (iOS cũ).
+    private let headerBar: UIVisualEffectView = {
+        let effect: UIVisualEffect
+        if #available(iOS 26.0, *) {
+            effect = UIGlassEffect()
+        } else {
+            effect = UIBlurEffect(style: .systemThinMaterial)
+        }
+        let v = UIVisualEffectView(effect: effect)
+        v.translatesAutoresizingMaskIntoConstraints = false
+        return v
+    }()
+    private var didSetHeaderInset = false
 
     private lazy var fab: UIButton = {
         var c = UIButton.Configuration.filled()
@@ -111,10 +126,19 @@ final class IdeasViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = Theme.page
-        setupTabs()
         setupList()
+        setupTabs()   // sau setupList để lớp kính nằm trên danh sách
         setupFab()
         reload()
+    }
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        let top = headerBar.frame.height
+        guard top > 0, abs(scroll.contentInset.top - top) > 0.5 else { return }
+        scroll.contentInset.top = top
+        scroll.verticalScrollIndicatorInsets.top = top
+        scroll.contentOffset.y = -top
     }
 
     private func setupFab() {
@@ -170,16 +194,22 @@ final class IdeasViewController: UIViewController {
         hairline.backgroundColor = Theme.border
         hairline.translatesAutoresizingMaskIntoConstraints = false
 
-        view.addSubview(tabsRow)
-        view.addSubview(hairline)
-        view.addSubview(ul)
+        view.addSubview(headerBar)
+        headerBar.contentView.addSubview(tabsRow)
+        headerBar.contentView.addSubview(hairline)
+        headerBar.contentView.addSubview(ul)
         NSLayoutConstraint.activate([
-            tabsRow.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 4),
-            tabsRow.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
+            headerBar.topAnchor.constraint(equalTo: view.topAnchor),
+            headerBar.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            headerBar.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            headerBar.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 42),
 
-            hairline.topAnchor.constraint(equalTo: tabsRow.bottomAnchor),
-            hairline.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            hairline.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            tabsRow.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 4),
+            tabsRow.leadingAnchor.constraint(equalTo: headerBar.leadingAnchor, constant: 16),
+
+            hairline.bottomAnchor.constraint(equalTo: headerBar.bottomAnchor),
+            hairline.leadingAnchor.constraint(equalTo: headerBar.leadingAnchor),
+            hairline.trailingAnchor.constraint(equalTo: headerBar.trailingAnchor),
             hairline.heightAnchor.constraint(equalToConstant: 1),
 
             ul.bottomAnchor.constraint(equalTo: hairline.topAnchor),
@@ -197,28 +227,31 @@ final class IdeasViewController: UIViewController {
                 AttributeContainer([.font: UIFont.systemFont(ofSize: 13, weight: selected ? .semibold : .regular)]))
             b.configuration = c
         }
-        // Neo underline vào tab đang chọn.
-        underline?.removeConstraints(underline?.constraints ?? [])
+        // Neo underline vào tab đang chọn (gỡ ràng buộc cũ trước khi thêm mới).
+        NSLayoutConstraint.deactivate(underlineConstraints)
         if let ul = underline {
             let target = tabButtons[selectedTab]
-            NSLayoutConstraint.activate([
+            underlineConstraints = [
                 ul.leadingAnchor.constraint(equalTo: target.leadingAnchor, constant: 4),
                 ul.trailingAnchor.constraint(equalTo: target.trailingAnchor, constant: -4),
-            ])
+            ]
+            NSLayoutConstraint.activate(underlineConstraints)
         }
     }
 
     private func selectTab(_ i: Int) {
         selectedTab = i
         updateTabs()
-        scroll.setContentOffset(.zero, animated: false)
+        // Về đầu danh sách (ngay dưới header kính), không phải y=0 tuyệt đối.
+        scroll.setContentOffset(CGPoint(x: 0, y: -scroll.contentInset.top), animated: false)
     }
 
     // MARK: List
     private func setupList() {
         scroll.translatesAutoresizingMaskIntoConstraints = false
         scroll.showsVerticalScrollIndicator = false
-        scroll.contentInset.bottom = 100
+        scroll.contentInsetAdjustmentBehavior = .never
+        scroll.contentInset.bottom = 130
         view.addSubview(scroll)
 
         list.axis = .vertical
@@ -227,7 +260,8 @@ final class IdeasViewController: UIViewController {
         scroll.addSubview(list)
 
         NSLayoutConstraint.activate([
-            scroll.topAnchor.constraint(equalTo: tabsRow.bottomAnchor, constant: 1),
+            // Cuộn toàn màn để nội dung trôi dưới lớp kính header.
+            scroll.topAnchor.constraint(equalTo: view.topAnchor),
             scroll.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             scroll.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             scroll.bottomAnchor.constraint(equalTo: view.bottomAnchor),

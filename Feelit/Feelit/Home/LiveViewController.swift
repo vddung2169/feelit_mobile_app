@@ -30,7 +30,7 @@ final class LiveViewController: UIViewController {
         reload()
     }
 
-    // MARK: Header (chip danh mục + tìm kiếm)
+    // MARK: Header (chip danh mục + tìm kiếm) — giống màn Poll: chip Liquid Glass + icon tìm kiếm
     private func setupHeader() {
         chipsScroll.showsHorizontalScrollIndicator = false
         chipsScroll.translatesAutoresizingMaskIntoConstraints = false
@@ -40,16 +40,11 @@ final class LiveViewController: UIViewController {
         chipsScroll.addSubview(chipsStack)
 
         for (i, c) in categories.enumerated() {
-            var config = UIButton.Configuration.plain()
-            config.attributedTitle = AttributedString(c, attributes:
-                AttributeContainer([.font: UIFont.systemFont(ofSize: 14, weight: .regular)]))
-            config.baseForegroundColor = Theme.textPrimary
-            config.contentInsets = .init(top: 6, leading: 14, bottom: 6, trailing: 14)
-            let b = UIButton(configuration: config)
+            let idx = i
+            // Chip Liquid Glass (iOS 26+) như màn Poll; "Xu hướng" có icon mũi tên xu hướng.
+            let b = CategoryChip.make(title: c, selected: c == selectedCategory, icon: chipIcon(c),
+                action: UIAction { [weak self] _ in self?.selectCategory(idx) })
             b.tag = i
-            b.layer.cornerRadius = 8
-            b.clipsToBounds = true
-            b.addAction(UIAction { [weak self] _ in self?.selectCategory(i) }, for: .touchUpInside)
             chipButtons.append(b)
             chipsStack.addArrangedSubview(b)
         }
@@ -80,6 +75,10 @@ final class LiveViewController: UIViewController {
             chipsStack.heightAnchor.constraint(equalTo: chipsScroll.heightAnchor),
         ])
         updateChipStyles()
+    }
+
+    private func chipIcon(_ category: String) -> String? {
+        category == "Xu hướng" ? "arrow.up.right" : nil
     }
 
     private func setupList() {
@@ -129,9 +128,8 @@ final class LiveViewController: UIViewController {
 
     private func updateChipStyles() {
         for (i, b) in chipButtons.enumerated() {
-            let selected = categories[i] == selectedCategory
-            b.backgroundColor = selected ? Theme.textPrimary : .clear
-            b.configuration?.baseForegroundColor = selected ? Theme.page : Theme.textPrimary
+            let cat = categories[i]
+            CategoryChip.update(b, title: cat, selected: cat == selectedCategory, icon: chipIcon(cat))
         }
     }
 }

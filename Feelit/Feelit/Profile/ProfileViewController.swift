@@ -36,12 +36,35 @@ final class ProfileViewController: UIViewController {
     private let scroll = UIScrollView()
     private let stack = UIStackView()
 
+    /// Header nổi dùng Liquid Glass (iOS 26+) / vật liệu mờ (iOS cũ).
+    private let headerBar: UIVisualEffectView = {
+        let effect: UIVisualEffect
+        if #available(iOS 26.0, *) {
+            effect = UIGlassEffect()
+        } else {
+            effect = UIBlurEffect(style: .systemThinMaterial)
+        }
+        let v = UIVisualEffectView(effect: effect)
+        v.translatesAutoresizingMaskIntoConstraints = false
+        return v
+    }()
+    private var didSetHeaderInset = false
+
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = P.page
-        setupHeader()
         setupScroll()
+        setupHeader()   // sau setupScroll để lớp kính nằm trên nội dung
         buildContent()
+    }
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        let top = headerBar.frame.height + 4
+        guard top > 4, abs(scroll.contentInset.top - top) > 0.5 else { return }
+        scroll.contentInset.top = top
+        scroll.verticalScrollIndicatorInsets.top = top
+        scroll.contentOffset.y = -top   // giữ ở đỉnh khi header settle xong
     }
 
     // MARK: Header
@@ -60,13 +83,21 @@ final class ProfileViewController: UIViewController {
         dot.layer.cornerRadius = 3
         dot.translatesAutoresizingMaskIntoConstraints = false
 
-        view.addSubview(title); view.addSubview(gear); gear.addSubview(dot)
+        view.addSubview(headerBar)
+        headerBar.contentView.addSubview(title)
+        headerBar.contentView.addSubview(gear)
+        gear.addSubview(dot)
         NSLayoutConstraint.activate([
-            title.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            title.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 10),
+            headerBar.topAnchor.constraint(equalTo: view.topAnchor),
+            headerBar.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            headerBar.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            headerBar.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 44),
+
+            title.centerXAnchor.constraint(equalTo: headerBar.centerXAnchor),
+            title.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 6),
 
             gear.centerYAnchor.constraint(equalTo: title.centerYAnchor),
-            gear.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+            gear.trailingAnchor.constraint(equalTo: headerBar.trailingAnchor, constant: -16),
             dot.widthAnchor.constraint(equalToConstant: 6),
             dot.heightAnchor.constraint(equalToConstant: 6),
             dot.topAnchor.constraint(equalTo: gear.topAnchor, constant: 2),
@@ -81,14 +112,16 @@ final class ProfileViewController: UIViewController {
     private func setupScroll() {
         scroll.translatesAutoresizingMaskIntoConstraints = false
         scroll.showsVerticalScrollIndicator = false
-        scroll.contentInset.bottom = 100
+        scroll.contentInsetAdjustmentBehavior = .never
+        scroll.contentInset.bottom = 130
         view.addSubview(scroll)
         stack.axis = .vertical
         stack.spacing = 12
         stack.translatesAutoresizingMaskIntoConstraints = false
         scroll.addSubview(stack)
         NSLayoutConstraint.activate([
-            scroll.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 48),
+            // Cuộn toàn màn để nội dung trôi dưới lớp kính header.
+            scroll.topAnchor.constraint(equalTo: view.topAnchor),
             scroll.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             scroll.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             scroll.bottomAnchor.constraint(equalTo: view.bottomAnchor),

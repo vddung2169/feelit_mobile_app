@@ -15,25 +15,6 @@ final class PollFeedViewController: UIViewController {
     private let chipsStack = UIStackView()
     private var chipButtons: [UIButton] = []
 
-    private let searchField: UITextField = {
-        let tf = UITextField()
-        tf.backgroundColor = Theme.track
-        tf.layer.cornerRadius = 12
-        tf.font = .systemFont(ofSize: 14, weight: .regular)
-        tf.textColor = Theme.textPrimary
-        tf.attributedPlaceholder = NSAttributedString(string: "Tìm kiếm...",
-            attributes: [.foregroundColor: Theme.textTertiary])
-        let icon = UIImageView(image: UIImage(systemName: "magnifyingglass"))
-        icon.tintColor = Theme.textSecondary
-        let left = UIView(frame: CGRect(x: 0, y: 0, width: 40, height: 44))
-        icon.frame = CGRect(x: 12, y: 12, width: 20, height: 20)
-        left.addSubview(icon)
-        tf.leftView = left
-        tf.leftViewMode = .always
-        tf.translatesAutoresizingMaskIntoConstraints = false
-        return tf
-    }()
-
     private lazy var collectionView: UICollectionView = {
         let layout = UICollectionViewFlowLayout()
         layout.minimumLineSpacing = 0
@@ -67,47 +48,67 @@ final class PollFeedViewController: UIViewController {
         chipsScroll.addSubview(chipsStack)
 
         for (i, c) in categories.enumerated() {
-            var config = UIButton.Configuration.plain()
-            config.attributedTitle = AttributedString(c, attributes:
-                AttributeContainer([.font: UIFont.systemFont(ofSize: 14, weight: .regular)]))
-            config.baseForegroundColor = Theme.textPrimary
-            config.contentInsets = .init(top: 6, leading: 14, bottom: 6, trailing: 14)
-            let b = UIButton(configuration: config)
+            let idx = i
+            let b = CategoryChip.make(title: c, selected: c == selectedCategory, icon: chipIcon(c),
+                action: UIAction { [weak self] _ in self?.selectCategory(idx) })
             b.tag = i
-            b.layer.cornerRadius = 8
-            b.clipsToBounds = true
-            b.addAction(UIAction { [weak self] _ in self?.selectCategory(i) }, for: .touchUpInside)
             chipButtons.append(b)
             chipsStack.addArrangedSubview(b)
         }
 
+        // Icon bảng xếp hạng (trái) + icon tìm kiếm (phải) trên cùng một hàng với chip.
+        let leaderboardBtn = headerIcon("chart.bar.fill")
+        leaderboardBtn.addAction(UIAction { [weak self] _ in
+            self?.navigationController?.pushViewController(LeaderboardViewController(), animated: true)
+        }, for: .touchUpInside)
+        let searchBtn = headerIcon("magnifyingglass")
+
+        view.addSubview(leaderboardBtn)
+        view.addSubview(searchBtn)
         view.addSubview(chipsScroll)
-        view.addSubview(searchField)
         NSLayoutConstraint.activate([
-            chipsScroll.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 4),
-            chipsScroll.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            chipsScroll.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            leaderboardBtn.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 4),
+            leaderboardBtn.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
+            leaderboardBtn.heightAnchor.constraint(equalToConstant: 36),
+            leaderboardBtn.widthAnchor.constraint(equalToConstant: 30),
+
+            searchBtn.centerYAnchor.constraint(equalTo: leaderboardBtn.centerYAnchor),
+            searchBtn.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+            searchBtn.widthAnchor.constraint(equalToConstant: 30),
+
+            chipsScroll.topAnchor.constraint(equalTo: leaderboardBtn.topAnchor),
+            chipsScroll.leadingAnchor.constraint(equalTo: leaderboardBtn.trailingAnchor, constant: 8),
+            chipsScroll.trailingAnchor.constraint(equalTo: searchBtn.leadingAnchor, constant: -8),
             chipsScroll.heightAnchor.constraint(equalToConstant: 36),
 
             chipsStack.topAnchor.constraint(equalTo: chipsScroll.topAnchor),
             chipsStack.bottomAnchor.constraint(equalTo: chipsScroll.bottomAnchor),
-            chipsStack.leadingAnchor.constraint(equalTo: chipsScroll.leadingAnchor, constant: 16),
-            chipsStack.trailingAnchor.constraint(equalTo: chipsScroll.trailingAnchor, constant: -16),
+            chipsStack.leadingAnchor.constraint(equalTo: chipsScroll.leadingAnchor),
+            chipsStack.trailingAnchor.constraint(equalTo: chipsScroll.trailingAnchor),
             chipsStack.heightAnchor.constraint(equalTo: chipsScroll.heightAnchor),
-
-            searchField.topAnchor.constraint(equalTo: chipsScroll.bottomAnchor, constant: 10),
-            searchField.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
-            searchField.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
-            searchField.heightAnchor.constraint(equalToConstant: 44),
         ])
         updateChipStyles()
+    }
+
+    private func chipIcon(_ category: String) -> String? {
+        category == "Xu hướng" ? "arrow.up.right" : nil
+    }
+
+    private func headerIcon(_ name: String) -> UIButton {
+        let b = UIButton(type: .system)
+        b.setImage(UIImage(systemName: name,
+            withConfiguration: UIImage.SymbolConfiguration(pointSize: 18, weight: .regular)), for: .normal)
+        b.tintColor = Theme.textPrimary
+        b.translatesAutoresizingMaskIntoConstraints = false
+        b.setContentHuggingPriority(.required, for: .horizontal)
+        return b
     }
 
     private func setupCollection() {
         view.addSubview(collectionView)
         view.sendSubviewToBack(collectionView)
         NSLayoutConstraint.activate([
-            collectionView.topAnchor.constraint(equalTo: searchField.bottomAnchor, constant: 10),
+            collectionView.topAnchor.constraint(equalTo: chipsScroll.bottomAnchor, constant: 8),
             collectionView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             collectionView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             collectionView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
@@ -124,10 +125,8 @@ final class PollFeedViewController: UIViewController {
 
     private func updateChipStyles() {
         for (i, b) in chipButtons.enumerated() {
-            let selected = categories[i] == selectedCategory
-            b.backgroundColor = selected ? Theme.textPrimary : .clear
-            // Chữ sáng trên viên đã chọn (nền tối), chữ tối khi chưa chọn (nền trắng).
-            b.configuration?.baseForegroundColor = selected ? Theme.page : Theme.textPrimary
+            let cat = categories[i]
+            CategoryChip.update(b, title: cat, selected: cat == selectedCategory, icon: chipIcon(cat))
         }
     }
 

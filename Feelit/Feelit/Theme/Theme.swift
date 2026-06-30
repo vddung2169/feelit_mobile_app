@@ -101,6 +101,10 @@ enum Theme {
     static let goldRank = UIColor(hex: 0xFFD609)
     static let voteUp   = UIColor(hex: 0x74FF7A)
     static let voteDown = UIColor(hex: 0xEF5350)
+    /// Nền nút "Neutral" (trắng mờ ở light; trắng rất mờ ở dark).
+    static let voteNeutral = UIColor { tc in
+        UIColor(white: 1, alpha: tc.userInterfaceStyle == .dark ? 0.12 : 0.68)
+    }
     static let redDot   = UIColor(hex: 0xFE3333)
 
     /// Chữ/icon nằm trên nền màu nhấn (vd "Lưu" trên nút xanh) — luôn sáng.
