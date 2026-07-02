@@ -593,3 +593,4 @@ claude.ai          → AI assist + gửi ảnh UI (⌘+Shift+4 → ⌘+V)
 ## License
 
 MIT License — xem file `LICENSE`
+# feelit_mobile_app
